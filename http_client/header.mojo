@@ -46,7 +46,7 @@ fn next_line(s: String) raises -> TwoLines:
 
 
 @value
-struct RequestHeader():
+struct RequestHeader(CollectionElement):
     var disable_normalization: Bool
     var no_http_1_1: Bool
     var __connection_close: Bool

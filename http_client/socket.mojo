@@ -118,7 +118,6 @@ struct Socket():
         let sockfd = socket(address_family, SOCK_STREAM, 0)
         if sockfd == -1:
             print("Socket creation error")
-        print("sockfd: " + "\n" + sockfd.__str__())
         self.sockfd = sockfd
         self._closed = False
         
@@ -164,7 +163,6 @@ struct Socket():
         let ai_ptr = Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
 
         if connect(self.sockfd, ai_ptr, sizeof[sockaddr_in]()) == -1:
-            print("Connection error")
             self.shutdown()
             return  # Ensure to exit if connection fails
     
@@ -174,8 +172,6 @@ struct Socket():
         let bytes_sent = send(self.sockfd, header_ptr, strlen(header_ptr), 0)
         if bytes_sent == -1:
             print("Failed to send message")
-        else:
-            print("Message sent")
     
     fn receive(self, bytes_to_receive: Int = 1024) -> String:
         let buf_size = bytes_to_receive
