@@ -1,4 +1,4 @@
-from external.libc import (
+from .external.libc import (
     socket,
     connect,
     close,

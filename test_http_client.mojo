@@ -1,12 +1,7 @@
-from http_client import HttpClient, Headers
+from http_client.client import HTTPClient
+from http_client.socket import Socket
 
-
-alias CONTENT_TYPE = "Content-Type"
-alias APPLICATION_JSON = "application/json"
-
-
-fn main() raises:
-    let client = HttpClient("www.google.com")
-    var headers = Headers()
-    headers[CONTENT_TYPE] = APPLICATION_JSON
-    let response = client.get("/", Headers())
+fn main():
+    var client = HTTPClient("www.example.com", 80)
+    let response = client.get("/")
+    print(response)
