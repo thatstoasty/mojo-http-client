@@ -6,6 +6,8 @@ from .external.libc import (
     send,
     shutdown,
     inet_pton,
+    inet_ntoa,
+    inet_ntop,
     to_char_ptr,
     htons,
     strlen,
@@ -17,6 +19,12 @@ from .external.libc import (
     c_void,
     c_uint,
     c_char,
+    addrinfo,
+    AI_PASSIVE,
+    getaddrinfo,
+    gai_strerror,
+    c_charptr_to_string,
+    c_int,
     # SOL_SOCKET,
     # SO_REUSEADDR,
     # bind,
@@ -25,16 +33,88 @@ from .external.libc import (
     # setsockopt,
     # socklen_t,
 )
+from memory.unsafe import bitcast
+
+
+fn get_ip_address(host: String):
+    # let ip_addr = "127.0.0.1"
+    # let port = 8083
+
+    var servinfo = Pointer[addrinfo]().alloc(1)
+    servinfo.store(addrinfo())
+
+    var hints = addrinfo()
+    hints.ai_family = AF_INET
+    hints.ai_socktype = SOCK_STREAM
+    hints.ai_flags = AI_PASSIVE
+
+    var host_ptr = to_char_ptr(host)
+
+    let status = getaddrinfo(
+        host_ptr,
+        Pointer[UInt8](),
+        Pointer.address_of(hints),
+        Pointer.address_of(servinfo),
+    )
+    print(status)
+    if status != 0:
+        print("getaddrinfo error")
+        let msg_ptr = gai_strerror(c_int(status))
+        _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
+            to_char_ptr("gai_strerror: %s"), msg_ptr
+        )
+        let msg = c_charptr_to_string(msg_ptr)
+        print("getaddrinfo satus: " + msg)
+
+    var server_info = servinfo.load()
+
+    # Cast sockaddr to sockaddr_in to be used in inet_ntop to get the IP address
+    # TODO: I'm supposed to traverse the resultant linked list using ai_next, but the next pointer is null.
+    # var si = servinfo
+    # var sa = server_info.ai_addr
+    # while si and not sa:
+    #     print("pointer is null")
+    #     si = server_info.ai_next
+
+    #     if not si:
+    #         print("si is null")
+    #         break
+    #     print("moved to next")
+    #     sa = si.load().ai_addr
+
+    # if servinfo:
+    #     var addr_in = bitcast[sockaddr_in](server_info.ai_addr)
+    #     if not addr_in:
+    #         print("addr_in is null")
+    #         return
+
+    print(server_info.ai_addrlen)
+    if server_info.ai_addr:
+        print("ai_addr is not null")
+    # let buf = Pointer[UInt8]().alloc(1024)
+    # var ip_address_ptr = inet_ntoa(a)
+    # print(ip_address_ptr.load())
+    # inet_ntop(AF_INET, a.s_addr, buf, 1024)
+    # server_info.ai_next
+
+    # print(server_info.ai_family)
+
+    # for i in range(len(addr)):
+    #     print(addr[i])
+
+    # print()
 
 
 @value
 struct Socket():
-    # var address_family: Int
-    # var socket_type: UInt8
     var sockfd: Int32
+    var address_family: Int
+    var socket_type: UInt8
     var _closed: Bool
 
     fn __init__(inout self, address_family: Int = AF_INET, socket_type: UInt8 = SOCK_STREAM):
+        self.address_family = address_family
+        self.socket_type = socket_type
         let sockfd = socket(address_family, SOCK_STREAM, 0)
         if sockfd == -1:
             print("Socket creation error")
@@ -49,6 +129,27 @@ struct Socket():
     # fn __exit__(inout self):
     #     if not self._closed:
     #         self.close()
+
+    # fn accept(self):
+    #     pass
+    
+    # fn bind(self):
+    #     pass
+    
+    # fn file_no(self) -> Int32:
+    #     return self.sockfd
+    
+    # fn get_sock_name(self):
+    #     pass
+    
+    # fn get_peer_name(self):
+    #     pass
+    
+    # fn get_sock_opt(self):
+    #     pass
+    
+    # fn set_sock_opt(self):
+        pass
                 
     fn connect(self, host: String, port: Int):
         let ip_addr = host

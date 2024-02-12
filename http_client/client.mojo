@@ -12,12 +12,18 @@ fn build_header_string(host: String, path: String, method: String, data: String 
 @value
 struct HTTPClient():
     var host: String
+    var ip: String # Temporary until getaddrinfo issue is resolved
     var port: Int
 
-    fn send_request(self, path: String, method: String, data: String = "") -> String:
+    fn send_request(
+        self, 
+        path: String, 
+        method: String, 
+        data: String = ""
+    ) -> String:
         let header_string = build_header_string(self.host, path, method)
         var socket = Socket()
-        socket.connect("93.184.216.34", self.port)
+        socket.connect(self.ip, self.port)
         socket.send(header_string)
         let response = socket.receive()
         socket.shutdown()
@@ -27,17 +33,17 @@ struct HTTPClient():
     fn get(self, path: String) -> String:
         return self.send_request(path, "GET")
     
-    fn post(self, path: String, data: String) -> String:
-        return self.send_request(path, "POST")
+    fn post(self, path: String, data: String = "") -> String:
+        return self.send_request(path, "POST", data)
     
-    fn put(self, path: String, data: String) -> String:
-        return self.send_request(path, "PUT")
+    fn put(self, path: String, data: String = "") -> String:
+        return self.send_request(path, "PUT", data)
     
     fn delete(self, path: String) -> String:
         return self.send_request(path, "DELETE")
     
-    fn patch(self, path: String, data: String) -> String:
-        return self.send_request(path, "PATCH")
+    fn patch(self, path: String, data: String = "") -> String:
+        return self.send_request(path, "PATCH", data)
     
     fn head(self, path: String) -> String:
         return self.send_request(path, "HEAD")
