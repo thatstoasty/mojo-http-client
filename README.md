@@ -1,7 +1,14 @@
 # mojo-http-client
 
+A barebones HTTP/1.1 client for Mojo using only Mojo and external C calls.
+
+Thanks to the following for a large chunk of the code for working with sockets via external calls to C!
+
+- https://github.com/saviorand/lightbug_http/tree/main
+- https://github.com/gabrieldemarmiesse/mojo-stdlib-extensions/tree/master
+
 # Usage
-Currently, it's a simple HTTP/1.1 client. It's able to send a request and receive a response String.
+Currently, it's a simple client. It's able to send a request and receive a response String, and pass some data along.
 
 
 ```python
@@ -34,7 +41,7 @@ fn main() raises:
 ```
 
 # TODO
-- Data transfer via requests
+- Return a response object instead of a string. 
 - Domain to IP address translation via getaddrinfo (`ai_next` points to null pointer, so I'm unable to get the actual result)
 - Add SSL support
 - Add HTTP/2 support

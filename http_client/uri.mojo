@@ -5,7 +5,6 @@ from .stdlib_extensions.builtins.string import join
 alias QueryParams = dict[HashableStr, String]
 
 
-# TODO: convenience type, not currently used properly but will be helpful in the future
 @value
 struct URI():
     var raw_host: String
@@ -13,7 +12,6 @@ struct URI():
     var scheme: String
     var path: String
     var _query_string: String
-    # var __hash: String
 
     var disable_path_normalization: Bool
 
@@ -31,7 +29,6 @@ struct URI():
         self.scheme = String()
         self.path = String()
         self._query_string = String()
-        # self.__hash = String()
         self.host = String()
         self.disable_path_normalization = False
         self.full_uri = full_uri
@@ -49,7 +46,6 @@ struct URI():
         self.scheme = scheme
         self.path = normalise_path(path, self.raw_host)
         self._query_string = String()
-        # self.__hash = String()
         self.host = host
         self.disable_path_normalization = False
         self.full_uri = String()
@@ -63,7 +59,6 @@ struct URI():
         path: String,
         scheme: String,
         query_string: String,
-        # hash: String,
         host: String,
         disable_path_normalization: Bool,
         full_uri: String,
@@ -75,7 +70,6 @@ struct URI():
         self.scheme = scheme
         self.path = path
         self._query_string = query_string
-        # self.__hash = hash
         self.host = host
         self.disable_path_normalization = disable_path_normalization
         self.full_uri = full_uri
@@ -83,50 +77,17 @@ struct URI():
         self.username = username
         self.password = password
 
-    # fn path_original(self) -> String:
-    #     return self.raw_host
-
     fn set_path(inout self, path: String) -> Self:
         self.path = normalise_path(path, self.raw_host)
         return self
-
-    # fn set_path_sString(inout self, path: String) -> Self:
-    #     self.path = normalise_path(path, self.raw_host)
-    #     return self
-
-    # fn path(self) -> String:
-    #     var processed_path = self.path
-    #     if len(processed_path) == 0:
-    #         processed_path = "/"
-    #     return String(processed_path)
 
     fn set_scheme(inout self, scheme: String) -> Self:
         self.scheme = scheme
         return self
 
-    # fn set_scheme_String(inout self, scheme: String) -> Self:
-    #     self.scheme = scheme
-    #     return self
-
-    # fn scheme(self) -> String:
-    #     var processed_scheme = self.scheme
-    #     if len(processed_scheme) == 0:
-    #         processed_scheme = "http"
-    #     return processed_scheme
-
-    # fn is_https(self) -> Bool:
-    #     return String_equal(self.scheme, strHttps)
-
-    # fn is_http(self) -> Bool:
-    #     return String_equal(self.scheme, strHttp) or len(self.scheme) == 0
-
     fn set_request_uri(inout self, request_uri: String) -> Self:
         self.request_uri = request_uri
         return self
-
-    # fn set_request_uri_String(inout self, request_uri: String) -> Self:
-    #     self.request_uri = request_uri
-    #     return self
 
     fn set_query_string(inout self, query_string: String) -> Self:
         self._query_string = query_string
@@ -140,31 +101,9 @@ struct URI():
         self._query_string = join("&", params)
         return self
 
-    # fn set_query_string_String(inout self, query_string: String) -> Self:
-    #     self._query_string = query_string
-    #     return self
-
-    # fn set_hash(inout self, hash: String) -> Self:
-    #     self.__hash = hash
-    #     return self
-
-    # fn set_hash_String(inout self, hash: String) -> Self:
-    #     self.__hash = hash
-    #     return self
-
-    # fn hash(self) -> String:
-    #     return self.__hash
-
     fn set_host(inout self, host: String) -> Self:
         self.host = host
         return self
-
-    # fn set_host_String(inout self, host: String) -> Self:
-    #     self.host = host
-    #     return self
-
-    # fn host(self) -> String:
-    #     return self.host
 
     fn parse(inout self) raises -> None:
         let raw_uri = String(self.full_uri)
@@ -220,24 +159,13 @@ struct URI():
         _ = self.set_scheme(proto_str)
         _ = self.set_request_uri(request_uri)
 
-    # fn request_uri(self) -> String:
-    #     return self.request_uri
-
     fn set_username(inout self, username: String) -> Self:
         self.username = username
         return self
 
-    # fn set_username_String(inout self, username: String) -> Self:
-    #     self.username = username
-    #     return self
-
     fn set_password(inout self, password: String) -> Self:
         self.password = password
         return self
-
-    # fn set_password_String(inout self, password: String) -> Self:
-    #     self.password = password
-    #     return self
 
     fn get_full_uri(self) -> String:
         var full_uri = self.scheme + "://" + self.host + self.path

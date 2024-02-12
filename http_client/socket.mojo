@@ -187,27 +187,10 @@ struct Socket():
         _ = shutdown(self.sockfd, SHUT_RDWR)
     
     fn close(inout self):
-        # self.shutdown()
-        print("Closing connection")
+        self.shutdown()
         let close_status = close(self.sockfd)
         if close_status == -1:
             print("Failed to close socket")
             return
 
         self._closed = True
-
-
-fn test_socket():
-    # with Socket() as socket:
-    #     socket.connect("93.184.216.34", 80)
-    #     socket.send("GET /index.html HTTP/1.1\r\nHost: www.example.com\r\nConnection: close\r\n\r\n")
-    #     socket.receive()
-        # socket.shutdown()
-        # socket.close()
-    var socket = Socket()
-    socket.connect("93.184.216.34", 80)
-    socket.send("GET /index.html HTTP/1.1\r\nHost: www.example.com\r\nConnection: close\r\n\r\n")
-    let response = socket.receive()
-    print(response)
-    socket.shutdown()
-    socket.close()

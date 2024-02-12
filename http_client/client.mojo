@@ -4,7 +4,7 @@ from .stdlib_extensions.builtins import dict, HashableStr, bytes
 
 alias Headers = dict[HashableStr, String]
 
-fn build_header_string(
+fn build_request_message(
     host: String, 
     path: String, 
     method: String, 
@@ -27,9 +27,25 @@ fn build_header_string(
             else:
                 header += String(pair.key) + ": " + pair.value + "\r\n"
 
+    # TODO: Only support dictionaries with string data for now
+    if data:
+        let data_string = stringify_data(data.value())
+        header += "Content-Length: " + String(len((data_string))) + "\r\n"
+        header += "Content-Type: application/json\r\n"
+        header += "\r\n" + data_string + "\r\n"
+
     header += "\r\n"
-    print(header)
     return header
+
+
+fn stringify_data(data: dict[HashableStr, String]) -> String:
+    var result: String = "{"
+    for pair in data.items():
+        result += '\"' + String(pair.key) + '\"' + ":" \
+        '\"' + pair.value + '\"'
+    
+    result += "}"
+    return result
 
 
 @value
@@ -45,11 +61,12 @@ struct HTTPClient():
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None
     ) -> String:
-        let header_string = build_header_string(self.host, path, method, headers, data)
+        let message = build_request_message(self.host, path, method, headers, data)
+        print(message)
         var socket = Socket()
         socket.connect(self.ip, self.port)
-        socket.send(header_string)
-        let response = socket.receive()
+        socket.send(message)
+        let response = socket.receive() # TODO: call receive until all data is fetched, receive should also just return bytes
         socket.shutdown()
         socket.close()
         return response
