@@ -18,26 +18,50 @@ from http_client.uri import QueryParams, URI
 from http_client.stdlib_extensions.builtins import dict, HashableStr, bytes
 
 
-fn main() raises:
-    # Simple GET request
-    var client = HTTPClient("www.example.com", "93.184.216.34", 80)
-    var response = client.get("/")
+fn test_post():
+    print("Testing POST")
+    var client = HTTPClient("www.httpbin.org", "54.224.28.82", 80)
+
+    # Add headers
+    var headers = Headers()
+    headers["Connection"] = "close"
+
+    # Add data
+    var data = dict[HashableStr, String]()
+    data["hello"] = "world"
+
+    var response = client.post("/post", headers, data)
     print(response)
 
-    # GET request with some basic header and query params support (should return 400 in this example)
+
+# Simple GET request
+fn test_get():
+    print("Testing GET")
+    let client = HTTPClient("www.example.com", "93.184.216.34", 80)
+    let response = client.get("/")
+    print(response)
+
+
+# GET request with headers and query params, returns 400. TODO: Need to fix this, not working atm, returns a 400
+fn test_query_params() raises:
+    print("Testing query params")
     var query_params = QueryParams()
     query_params["world"] = "hello"
     query_params["foo"] = "bar"
 
-    var uri = URI("http", "www.google.com", "")
+    var uri = URI("http", "www.httpbin.org", "/get")
     _ = uri.set_query_string(query_params)
-    client = HTTPClient(uri.get_full_uri(), "142.251.116.106", 80)
-    var headers = Headers()
-    headers["Connection"] = "close"
-    headers["Content-Length"] = len(uri._query_string)
-    headers["MyHeader"] = "123"
-    response = client.get("/", headers)
+
+    # PUT request
+    let client = HTTPClient(uri.get_full_uri(), "54.224.28.82", 80)
+    let response = client.get("/get")
     print(response)
+
+
+fn main() raises:
+    test_get()
+    test_post()
+    # test_query_params()
 ```
 
 # TODO
