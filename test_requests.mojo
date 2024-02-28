@@ -4,7 +4,7 @@ from http_client.uri import QueryParams, URI
 from http_client.stdlib_extensions.builtins import dict, HashableStr, bytes
 
 
-fn test_post():
+fn test_post() raises:
     print("Testing POST")
     var client = HTTPClient("www.httpbin.org", 80)
 
@@ -21,7 +21,7 @@ fn test_post():
 
 
 # Simple GET request
-fn test_get():
+fn test_get() raises:
     print("Testing GET")
     let client = HTTPClient("www.example.com", 80)
     let response = client.get("/")
