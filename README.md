@@ -12,15 +12,9 @@ Currently, it's a simple client. It's able to send a request and receive a respo
 
 
 ```python
-from http_client.client import HTTPClient, Headers
-from http_client.socket import Socket
-from http_client.uri import QueryParams, URI
-from http_client.stdlib_extensions.builtins import dict, HashableStr, bytes
-
-
-fn test_post():
+fn test_post() raises:
     print("Testing POST")
-    var client = HTTPClient("www.httpbin.org", "54.224.28.82", 80)
+    var client = HTTPClient("www.httpbin.org", 80)
 
     # Add headers
     var headers = Headers()
@@ -35,9 +29,9 @@ fn test_post():
 
 
 # Simple GET request
-fn test_get():
+fn test_get() raises:
     print("Testing GET")
-    let client = HTTPClient("www.example.com", "93.184.216.34", 80)
+    let client = HTTPClient("www.example.com", 80)
     let response = client.get("/")
     print(response)
 
@@ -53,7 +47,7 @@ fn test_query_params() raises:
     _ = uri.set_query_string(query_params)
 
     # PUT request
-    let client = HTTPClient(uri.get_full_uri(), "54.224.28.82", 80)
+    let client = HTTPClient(uri.get_full_uri(), 80)
     let response = client.get("/get")
     print(response)
 
