@@ -1,4 +1,4 @@
-from .external.libc import (
+from .c.net import (
     c_void,
     c_int,
     c_uint,
@@ -23,8 +23,8 @@ from .external.libc import (
     recv,
     bind,
     shutdown,
-    close,
 )
+from .c.file import close
 
 @value
 struct NetworkType:
