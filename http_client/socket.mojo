@@ -286,7 +286,12 @@ struct Socket:
         return option_value_pointer.bitcast[Int]().load()
 
     fn set_sock_opt(self, option_name: Int, owned option_value: UInt8 = 1) raises:
-        """ """
+        """Return the value of the given socket option.
+
+        Args:
+            option_name: Int - The socket option to set.
+            option_value: UInt8 - The value to set the socket option to.
+        """
         var option_value_pointer = Pointer.address_of(option_value)
         let status = setsockopt(
             self.sockfd, SOL_SOCKET, option_name, option_value_pointer, sizeof[c_void]()
@@ -295,6 +300,12 @@ struct Socket:
             raise Error("setsockopt failed.")
 
     fn connect(self, address: String, port: Int):
+        """Connect to a remote socket at address.
+
+        Args:
+            address: String - The IP address to connect to.
+            port: Int - The port number to connect to.
+        """
         let sockaddr_pointer = build_sockaddr_pointer(
             address, port, self.address_family
         )
@@ -303,13 +314,28 @@ struct Socket:
             self.shutdown()
             return  # Ensure exit if connection fails
 
-    fn send(self, header: String) raises:
-        let header_ptr = to_char_ptr(header)
+    fn send(self, data: Tensor[DType.int8]) raises:
+        """Send data to the socket. The socket must be connected to a remote socket."""
+        let header_pointer = data.data().address.bitcast[UInt8]()
 
-        let bytes_sent = send(self.sockfd, header_ptr, strlen(header_ptr), 0)
+        let bytes_sent = send(self.sockfd, header_pointer, strlen(header_pointer), 0)
         if bytes_sent == -1:
             raise Error("Failed to send message")
+    
+    fn send_to(self, data: Tensor[DType.int8], address: String, port: Int) raises:
+        """Send data to the a remote address by connecting to the remote socket before sending.
+        The socket must be not already be connected to a remote socket.
+        
+        Args:
+            data: Tensor[DType.int8] - The data to send.
+            address: String - The IP address to connect to.
+            port: Int - The port number to connect to.
+        """
+        let header_pointer = data.data().address.bitcast[UInt8]()
 
+        self.connect(address, port)
+        self.send(data)
+    
     fn receive(self, bytes_to_receive: Int = 1024) raises -> Tensor[DType.int8]:
         let buf = Pointer[UInt8]().alloc(bytes_to_receive)
         let bytes_recieved = recv(self.sockfd, buf, bytes_to_receive, 0)
@@ -325,6 +351,9 @@ struct Socket:
         _ = shutdown(self.sockfd, SHUT_RDWR)
 
     fn close(inout self) raises:
+        """Mark the socket closed.
+        Once that happens, all future operations on the socket object will fail. The remote end will receive no more data (after queued data is flushed).
+        """
         self.shutdown()
         let close_status = close(self.sockfd)
         if close_status == -1:
