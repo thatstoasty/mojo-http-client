@@ -8,7 +8,7 @@ Thanks to the following for a large chunk of the code for working with sockets v
 - https://github.com/gabrieldemarmiesse/mojo-stdlib-extensions/tree/master
 
 # Usage
-Currently, it's a simple client. It's able to send a request and receive a response String, and pass some data along.
+Currently, it's a simple client. It's able to send requests and parse response strings into a Response struct, and pass some data along.
 
 
 ```python
@@ -25,7 +25,7 @@ fn test_post() raises:
     data["hello"] = "world"
 
     var response = client.post("/post", headers, data)
-    print(response)
+    print(response.body)
 
 
 # Simple GET request
@@ -33,7 +33,7 @@ fn test_get() raises:
     print("Testing GET")
     let client = HTTPClient("www.example.com", 80)
     let response = client.get("/")
-    print(response)
+    print(response.body)
 
 
 # GET request with headers and query params, returns 400. TODO: Need to fix this, not working atm, returns a 400
@@ -49,8 +49,7 @@ fn test_query_params() raises:
     # PUT request
     let client = HTTPClient(uri.get_full_uri(), 80)
     let response = client.get("/get")
-    print(response)
-
+    print(response.body)
 
 fn main() raises:
     test_get()
@@ -61,3 +60,4 @@ fn main() raises:
 # TODO
 - Add SSL support
 - Add HTTP/2 support
+- Add tests
