@@ -25,7 +25,7 @@ fn test_get() raises:
     print("Testing GET")
     let client = HTTPClient("www.example.com", 80)
     let response = client.get("/")
-    print(response)
+    print(response.body)
 
 
 # GET request with headers and query params, returns 400. TODO: Need to fix this, not working atm, returns a 400
@@ -41,8 +41,7 @@ fn test_query_params() raises:
     # PUT request
     let client = HTTPClient(uri.get_full_uri(), 80)
     let response = client.get("/get")
-    print(response)
-
+    print(response.body)
 
 fn main() raises:
     test_get()

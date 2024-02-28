@@ -4,6 +4,7 @@ from memory.memory import memcpy
 from tensor import Tensor
 from .socket import Socket, get_ip_address
 from .stdlib_extensions.builtins import dict, HashableStr, bytes
+from .response import Response
 
 alias Headers = dict[HashableStr, String]
 
@@ -65,7 +66,7 @@ struct HTTPClient:
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None,
-    ) raises -> String:
+    ) raises -> Response:
         let message = build_request_message(self.host, path, method, headers, data)
         print(message)
         var socket = Socket()
@@ -79,23 +80,27 @@ struct HTTPClient:
         # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
         var bytes_read = 0
         while True:
-            var response = socket.receive()
-            if response.bytecount() == 0:
+            var byte_stream = socket.receive()
+            if byte_stream.bytecount() == 0:
                 break
-            memcpy(response_buffer.data.offset(bytes_read), response.data(), response.bytecount())
-            bytes_read += response.bytecount()
-    
-        # Use a StringRef to avoid double freeing the data pointer of the tensor. It is owned by the tensor, so a String would try freeing it twice.
-        var msg = StringRef(response_buffer.data, bytes_read)
+            memcpy(
+                response_buffer.data.offset(bytes_read),
+                byte_stream.data(),
+                byte_stream.bytecount(),
+            )
+            bytes_read += byte_stream.bytecount()
+
+        # Using a StringRef to avoid pointer double free shenanigans.
+        var response = Response(StringRef(response_buffer.data, bytes_read))
         socket.shutdown()
         socket.close()
-        return msg
+        return response
 
     fn get(
         self,
         path: String,
         headers: Optional[Headers] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("GET", path, headers=headers)
 
     fn post(
@@ -103,7 +108,7 @@ struct HTTPClient:
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("POST", path, headers=headers, data=data)
 
     fn put(
@@ -111,7 +116,7 @@ struct HTTPClient:
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("PUT", path, headers=headers, data=data)
 
     fn delete(
@@ -119,7 +124,7 @@ struct HTTPClient:
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("DELETE", path, headers=headers)
 
     fn patch(
@@ -127,19 +132,19 @@ struct HTTPClient:
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("PATCH", path, headers=headers, data=data)
 
     fn head(
         self,
         path: String,
         headers: Optional[Headers] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("HEAD", path, headers=headers)
 
     fn options(
         self,
         path: String,
         headers: Optional[Headers] = None,
-    ) raises -> String:
+    ) raises -> Response:
         return self.send_request("DELETE", path, headers=headers)

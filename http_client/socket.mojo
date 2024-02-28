@@ -42,7 +42,6 @@ from .c.net import (
     SO_REUSEADDR,
 )
 from .c.file import close
-from .connection import SysConnection, TCPAddr
 
 
 fn get_addr_info(host: String) raises -> addrinfo:
@@ -174,6 +173,22 @@ struct Socket:
         self.sockfd = sockfd
         self._closed = False
 
+    fn __init__(
+        inout self,
+        sockfd: Int32,
+        address_family: Int,
+        socket_type: UInt8,
+        protocol: UInt8,
+    ):
+        """
+        Create a new socket object when you already have a socket file descriptor. Typically through socket.accept().
+        """
+        self.sockfd = sockfd
+        self.address_family = address_family
+        self.socket_type = socket_type
+        self.protocol = protocol
+        self._closed = False
+
     fn __enter__(self) -> Self:
         return self
 
@@ -182,26 +197,36 @@ struct Socket:
     #         self.close()
 
     @always_inline
-    fn accept(self) raises -> SysConnection:
+    fn accept(self) raises -> Self:
+        """Accept a connection. The socket must be bound to an address and listening for connections.
+        The return value is a connection where conn is a new socket object usable to send and receive data on the connection,
+        and address is the address bound to the socket on the other end of the connection.
+        """
         let their_addr_ptr = Pointer[sockaddr].alloc(1)
         var sin_size = socklen_t(sizeof[socklen_t]())
         let new_sockfd = accept(
             self.sockfd, their_addr_ptr, Pointer[socklen_t].address_of(sin_size)
         )
         if new_sockfd == -1:
-            print("Failed to accept connection")
-        # TODO: pass raddr to connection
-        return SysConnection(TCPAddr("", 0), TCPAddr("", 0), new_sockfd)
+            raise Error("Failed to accept connection")
+
+        return Self(new_sockfd, self.address_family, self.socket_type, self.protocol)
 
     @always_inline
-    fn bind(self, address: String, port: Int):
+    fn bind(self, address: String, port: Int) raises:
+        """Bind the socket to address. The socket must not already be bound. (The format of address depends on the address family).
+
+        Args:
+            address: String - The IP address to bind the socket to.
+            port: Int - The port number to bind the socket to.
+        """
         let sockaddr_pointer = build_sockaddr_pointer(
             address, port, self.address_family
         )
 
         if bind(self.sockfd, sockaddr_pointer, sizeof[sockaddr_in]()) == -1:
             _ = shutdown(self.sockfd, SHUT_RDWR)
-            print("Binding socket failed. Wait a few seconds and try again?")
+            raise Error("Binding socket failed. Wait a few seconds and try again?")
 
     @always_inline
     fn file_no(self) -> Int32:
@@ -211,7 +236,7 @@ struct Socket:
     fn get_sock_name(self) raises -> String:
         if self._closed:
             raise Error("Socket is closed")
-        
+
         # TODO: Add check to see if the socket is bound and error if not.
 
         let socket_address_pointer = Pointer[sockaddr].alloc(1)
@@ -223,14 +248,12 @@ struct Socket:
             raise Error("Failed to get socket name")
         let addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
 
-        return convert_binary_ip_to_string(
-            addr_in.sin_addr.s_addr, AF_INET, 16
-        )
+        return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
     fn get_peer_name(self) raises -> String:
         if self._closed:
             raise Error("Socket is closed.")
-        
+
         # TODO: Add check to see if the socket is bound and error if not.
 
         let socket_address_pointer = Pointer[sockaddr].alloc(1)
@@ -239,12 +262,12 @@ struct Socket:
             self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
         )
         if status == -1:
-            raise Error("Failed to get the address of the peer connected to the socket.")
+            raise Error(
+                "Failed to get the address of the peer connected to the socket."
+            )
         let addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
 
-        return convert_binary_ip_to_string(
-            addr_in.sin_addr.s_addr, AF_INET, 16
-        )
+        return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
     fn get_sock_opt(self, option_name: Int) raises -> Int:
         let option_value_pointer = Pointer[c_void].alloc(1)
@@ -280,12 +303,12 @@ struct Socket:
             self.shutdown()
             return  # Ensure exit if connection fails
 
-    fn send(self, header: String):
+    fn send(self, header: String) raises:
         let header_ptr = to_char_ptr(header)
 
         let bytes_sent = send(self.sockfd, header_ptr, strlen(header_ptr), 0)
         if bytes_sent == -1:
-            print("Failed to send message")
+            raise Error("Failed to send message")
 
     fn receive(self, bytes_to_receive: Int = 1024) raises -> Tensor[DType.int8]:
         let buf = Pointer[UInt8]().alloc(bytes_to_receive)
@@ -301,11 +324,10 @@ struct Socket:
     fn shutdown(self):
         _ = shutdown(self.sockfd, SHUT_RDWR)
 
-    fn close(inout self):
+    fn close(inout self) raises:
         self.shutdown()
         let close_status = close(self.sockfd)
         if close_status == -1:
-            print("Failed to close socket")
-            return
+            raise Error("Failed to close socket")
 
         self._closed = True
