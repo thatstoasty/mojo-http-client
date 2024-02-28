@@ -1,5 +1,16 @@
 from memory.unsafe import bitcast
+from tensor import Tensor
+from .c.types import (
+    c_void,
+    c_uint,
+    c_char,
+    c_int,
+)
 from .c.net import (
+    sockaddr,
+    sockaddr_in,
+    addrinfo,
+    socklen_t,
     socket,
     connect,
     recv,
@@ -12,30 +23,23 @@ from .c.net import (
     htons,
     ntohs,
     strlen,
-    AF_INET,
-    SOCK_STREAM,
-    SHUT_RDWR,
-    sockaddr,
-    sockaddr_in,
-    c_void,
-    c_uint,
-    c_char,
-    addrinfo,
-    AI_PASSIVE,
     getaddrinfo,
     gai_strerror,
     c_charptr_to_string,
-    c_int,
-    SOL_SOCKET,
-    SO_REUSEADDR,
     bind,
     listen,
     accept,
     setsockopt,
     getsockopt,
     getsockname,
-    socklen_t,
+    getpeername,
     c_charptr_to_string,
+    AF_INET,
+    SOCK_STREAM,
+    SHUT_RDWR,
+    AI_PASSIVE,
+    SOL_SOCKET,
+    SO_REUSEADDR,
 )
 from .c.file import close
 from .connection import SysConnection, TCPAddr
@@ -199,22 +203,48 @@ struct Socket:
             _ = shutdown(self.sockfd, SHUT_RDWR)
             print("Binding socket failed. Wait a few seconds and try again?")
 
-    # fn file_no(self) -> Int32:
-    #     return self.sockfd
+    @always_inline
+    fn file_no(self) -> Int32:
+        return self.sockfd
 
-    fn get_sock_name(self) raises -> UInt32:
-        let their_addr_ptr = Pointer[sockaddr].alloc(1)
+    @always_inline
+    fn get_sock_name(self) raises -> String:
+        if self._closed:
+            raise Error("Socket is closed")
+        
+        # TODO: Add check to see if the socket is bound and error if not.
+
+        let socket_address_pointer = Pointer[sockaddr].alloc(1)
         var sin_size = socklen_t(sizeof[socklen_t]())
         let status = getsockname(
-            self.sockfd, their_addr_ptr, Pointer[socklen_t].address_of(sin_size)
+            self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
         )
         if status == -1:
             raise Error("Failed to get socket name")
-        # return their_addr_ptr.load().sa_family
-        return sin_size
+        let addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
 
-    # fn get_peer_name(self):
-    #     pass
+        return convert_binary_ip_to_string(
+            addr_in.sin_addr.s_addr, AF_INET, 16
+        )
+
+    fn get_peer_name(self) raises -> String:
+        if self._closed:
+            raise Error("Socket is closed.")
+        
+        # TODO: Add check to see if the socket is bound and error if not.
+
+        let socket_address_pointer = Pointer[sockaddr].alloc(1)
+        var sin_size = socklen_t(sizeof[socklen_t]())
+        let status = getpeername(
+            self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
+        )
+        if status == -1:
+            raise Error("Failed to get the address of the peer connected to the socket.")
+        let addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
+
+        return convert_binary_ip_to_string(
+            addr_in.sin_addr.s_addr, AF_INET, 16
+        )
 
     fn get_sock_opt(self, option_name: Int) raises -> Int:
         let option_value_pointer = Pointer[c_void].alloc(1)
@@ -257,15 +287,16 @@ struct Socket:
         if bytes_sent == -1:
             print("Failed to send message")
 
-    fn receive(self, bytes_to_receive: Int = 1024) -> String:
-        let buf_size = bytes_to_receive
-        let buf = Pointer[UInt8]().alloc(buf_size)
-        let bytes_recv = recv(self.sockfd, buf, buf_size, 0)
-        if bytes_recv == -1:
-            print("Failed to receive message")
-            return ""
+    fn receive(self, bytes_to_receive: Int = 4096) raises -> Tensor[DType.int8]:
+        let buf = Pointer[UInt8]().alloc(bytes_to_receive)
+        let bytes_recieved = recv(self.sockfd, buf, bytes_to_receive, 0)
+        if bytes_recieved == -1:
+            raise Error("Failed to receive message from socket.")
 
-        return String(buf.bitcast[Int8](), bytes_recv)
+        # Cast the Pointer[UInt8] to a Pointer[DType.int8] and create a Tensor from the buffer.
+        var buffer_pointer = DTypePointer[DType.int8](buf.bitcast[Int8]())
+        var byte_stream = Tensor(buffer_pointer, bytes_recieved)
+        return byte_stream
 
     fn shutdown(self):
         _ = shutdown(self.sockfd, SHUT_RDWR)

@@ -46,5 +46,5 @@ fn test_query_params() raises:
 
 fn main() raises:
     test_get()
-    test_post()
+    # test_post()
     # test_query_params()

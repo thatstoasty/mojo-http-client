@@ -65,10 +65,12 @@ struct HTTPClient:
         var socket = Socket()
         socket.connect(get_ip_address(self.host), self.port)
         socket.send(message)
-        let response = socket.receive()  # TODO: call receive until all data is fetched, receive should also just return bytes
+        var response = socket.receive()  # TODO: call receive until all data is fetched, receive should also just return bytes
+        # Use a StringRef to avoid double freeing the data pointer of the tensor. It is owned by the tensor, so a String would try freeing it twice.
+        var msg = StringRef(response.data(), response.bytecount())
         socket.shutdown()
         socket.close()
-        return response
+        return msg
 
     fn get(
         self,
