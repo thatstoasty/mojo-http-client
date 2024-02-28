@@ -1,3 +1,15 @@
+from .types import (
+    c_char, 
+    c_int, 
+    c_ushort,
+    c_uint,
+    c_void,
+    c_size_t,
+    c_ssize_t,
+    strlen
+)
+from .file import O_CLOEXEC, O_NONBLOCK
+
 alias IPPROTO_IPV6 = 41
 alias IPV6_V6ONLY = 26
 alias EPROTONOSUPPORT = 93
@@ -12,60 +24,6 @@ alias SUCCESS = 0
 alias GRND_NONBLOCK: UInt8 = 1
 
 alias char_pointer = AnyPointer[c_char]
-
-
-@value
-struct Str:
-    var vector: DynamicVector[c_char]
-
-    fn __init__(inout self, string: String):
-        self.vector = DynamicVector[c_char](capacity=len(string) + 1)
-        for i in range(len(string)):
-            self.vector.push_back(ord(string[i]))
-        self.vector.push_back(0)
-
-    fn __init__(inout self, size: Int):
-        self.vector = DynamicVector[c_char]()
-        self.vector.resize(size + 1, 0)
-
-    fn __len__(self) -> Int:
-        for i in range(len(self.vector)):
-            if self.vector[i] == 0:
-                return i
-        return -1
-
-    fn to_string(self, size: Int) -> String:
-        var result: String = ""
-        for i in range(size):
-            result += chr(self.vector[i].to_int())
-        return result
-
-    fn __enter__(owned self: Self) -> Self:
-        return self ^
-
-
-# Adapted from https://github.com/crisadamo/mojo-Libc . Huge thanks to Cristian!
-# C types
-alias c_void = UInt8
-alias c_char = UInt8
-alias c_schar = Int8
-alias c_uchar = UInt8
-alias c_short = Int16
-alias c_ushort = UInt16
-alias c_int = Int32
-alias c_uint = UInt32
-alias c_long = Int64
-alias c_ulong = UInt64
-alias c_float = Float32
-alias c_double = Float64
-
-# `Int` is known to be machine's width
-alias c_size_t = Int
-alias c_ssize_t = Int
-
-alias ptrdiff_t = Int64
-alias intptr_t = Int64
-alias uintptr_t = UInt64
 
 
 # --- ( error.h Constants )-----------------------------------------------------
@@ -175,6 +133,7 @@ alias AF_KCM = 41
 alias AF_QIPCRTR = 42
 alias AF_MAX = 43
 
+# Protocol family constants
 alias PF_UNSPEC = AF_UNSPEC
 alias PF_UNIX = AF_UNIX
 alias PF_LOCAL = AF_LOCAL
@@ -371,31 +330,24 @@ struct sockaddr_in6:
 @value
 @register_passable("trivial")
 struct addrinfo:
+    """Struct field ordering can vary based on platform. 
+    For MacOS, I had to swap the order of ai_canonname and ai_addr.
+    https://stackoverflow.com/questions/53575101/calling-getaddrinfo-directly-from-python-ai-addr-is-null-pointer
+    """
     var ai_flags: c_int
     var ai_family: c_int
     var ai_socktype: c_int
     var ai_protocol: c_int
     var ai_addrlen: socklen_t
-    var ai_addr: Pointer[sockaddr]
     var ai_canonname: Pointer[c_char]
+    var ai_addr: Pointer[sockaddr]
     # FIXME(cristian): This should be Pointer[addrinfo]
     var ai_next: Pointer[addrinfo]
 
     fn __init__() -> Self:
         return Self(
-            0, 0, 0, 0, 0, Pointer[sockaddr](), Pointer[c_char](), Pointer[addrinfo]()
+            0, 0, 0, 0, 0, Pointer[c_char](), Pointer[sockaddr](), Pointer[addrinfo]()
         )
-
-
-fn strlen(s: Pointer[c_char]) -> c_size_t:
-    """Libc POSIX `strlen` function
-    Reference: https://man7.org/linux/man-pages/man3/strlen.3p.html
-    Fn signature: size_t strlen(const char *s).
-
-    Args: s: A pointer to a C string.
-    Returns: The length of the string.
-    """
-    return external_call["strlen", c_size_t, Pointer[c_char]](s)
 
 
 # --- ( Network Related Syscalls & Structs )------------------------------------
@@ -556,6 +508,56 @@ fn setsockopt(
     ](socket, level, option_name, option_value, option_len)
 
 
+fn getsockopt(
+    socket: c_int,
+    level: c_int,
+    option_name: c_int,
+    option_value: Pointer[c_void],
+    option_len: Pointer[socklen_t],
+) -> c_int:
+    """Libc POSIX `getsockopt` function
+    Reference: https://man7.org/linux/man-pages/man3/getsockopt.3p.html
+    Fn signature: int getsockopt(int socket, int level, int option_name, void *restrict option_value, socklen_t *restrict option_len).
+
+    Args: socket: A File Descriptor.
+        level: The protocol level.
+        option_name: The option to get.
+        option_value: A pointer to the value to get.
+        option_len: Pointer to the size of the value.
+    Returns: 0 on success, -1 on error.
+    """
+    return external_call[
+        "getsockopt",
+        c_int,  # FnName, RetType
+        c_int,
+        c_int,
+        c_int,
+        Pointer[c_void],
+        Pointer[socklen_t],  # Args
+    ](socket, level, option_name, option_value, option_len)
+
+
+fn getsockname(
+    socket: c_int, address: Pointer[sockaddr], address_len: Pointer[socklen_t]
+) -> c_int:
+    """Libc POSIX `getsockname` function
+    Reference: https://man7.org/linux/man-pages/man3/getsockname.3p.html
+    Fn signature: int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len).
+
+    Args: socket: A File Descriptor.
+        address: A pointer to a buffer to store the address of the peer.
+        address_len: A pointer to the size of the buffer.
+    Returns: 0 on success, -1 on error.
+    """
+    return external_call[
+        "getsockname",
+        c_int,  # FnName, RetType
+        c_int,
+        Pointer[sockaddr],
+        Pointer[socklen_t],  # Args
+    ](socket, address, address_len)
+
+
 fn bind(socket: c_int, address: Pointer[sockaddr], address_len: socklen_t) -> c_int:
     """Libc POSIX `bind` function
     Reference: https://man7.org/linux/man-pages/man3/bind.3p.html
@@ -711,280 +713,3 @@ fn inet_pton(address_family: Int, address: String) -> Int:
         rebind[c_int](address_family), to_char_ptr(address), ip_buf
     )
     return ip_buf.bitcast[c_uint]().load().to_int()
-
-
-# --- ( File Related Syscalls & Structs )---------------------------------------
-alias O_NONBLOCK = 16384
-alias O_ACCMODE = 3
-alias O_CLOEXEC = 524288
-
-
-fn close(fildes: c_int) -> c_int:
-    """Libc POSIX `close` function
-    Reference: https://man7.org/linux/man-pages/man3/close.3p.html
-    Fn signature: int close(int fildes).
-
-    Args:
-        fildes: A File Descriptor to close.
-
-    Returns:
-        Upon successful completion, 0 shall be returned; otherwise, -1
-        shall be returned and errno set to indicate the error.
-    """
-    return external_call["close", c_int, c_int](fildes)
-
-
-fn open[*T: AnyType](path: Pointer[c_char], oflag: c_int, *args: *T) -> c_int:
-    """Libc POSIX `open` function
-    Reference: https://man7.org/linux/man-pages/man3/open.3p.html
-    Fn signature: int open(const char *path, int oflag, ...).
-
-    Args:
-        path: A pointer to a C string containing the path to open.
-        oflag: The flags to open the file with.
-        args: The optional arguments.
-    Returns:
-        A File Descriptor or -1 in case of failure
-    """
-    return external_call[
-        "open", c_int, Pointer[c_char], c_int  # FnName, RetType  # Args
-    ](path, oflag, args)
-
-
-fn openat[
-    *T: AnyType
-](fd: c_int, path: Pointer[c_char], oflag: c_int, *args: *T) -> c_int:
-    """Libc POSIX `open` function
-    Reference: https://man7.org/linux/man-pages/man3/open.3p.html
-    Fn signature: int openat(int fd, const char *path, int oflag, ...).
-
-    Args:
-        fd: A File Descriptor.
-        path: A pointer to a C string containing the path to open.
-        oflag: The flags to open the file with.
-        args: The optional arguments.
-    Returns:
-        A File Descriptor or -1 in case of failure
-    """
-    return external_call[
-        "openat", c_int, c_int, Pointer[c_char], c_int  # FnName, RetType  # Args
-    ](fd, path, oflag, args)
-
-
-fn printf[*T: AnyType](format: Pointer[c_char], *args: *T) -> c_int:
-    """Libc POSIX `printf` function
-    Reference: https://man7.org/linux/man-pages/man3/fprintf.3p.html
-    Fn signature: int printf(const char *restrict format, ...).
-
-    Args: format: A pointer to a C string containing the format.
-        args: The optional arguments.
-    Returns: The number of bytes written or -1 in case of failure.
-    """
-    return external_call[
-        "printf",
-        c_int,  # FnName, RetType
-        Pointer[c_char],  # Args
-    ](format, args)
-
-
-fn sprintf[
-    *T: AnyType
-](s: Pointer[c_char], format: Pointer[c_char], *args: *T) -> c_int:
-    """Libc POSIX `sprintf` function
-    Reference: https://man7.org/linux/man-pages/man3/fprintf.3p.html
-    Fn signature: int sprintf(char *restrict s, const char *restrict format, ...).
-
-    Args: s: A pointer to a buffer to store the result.
-        format: A pointer to a C string containing the format.
-        args: The optional arguments.
-    Returns: The number of bytes written or -1 in case of failure.
-    """
-    return external_call[
-        "sprintf", c_int, Pointer[c_char], Pointer[c_char]  # FnName, RetType  # Args
-    ](s, format, args)
-
-
-fn read(fildes: c_int, buf: Pointer[c_void], nbyte: c_size_t) -> c_int:
-    """Libc POSIX `read` function
-    Reference: https://man7.org/linux/man-pages/man3/read.3p.html
-    Fn signature: sssize_t read(int fildes, void *buf, size_t nbyte).
-
-    Args: fildes: A File Descriptor.
-        buf: A pointer to a buffer to store the read data.
-        nbyte: The number of bytes to read.
-    Returns: The number of bytes read or -1 in case of failure.
-    """
-    return external_call["read", c_ssize_t, c_int, Pointer[c_void], c_size_t](
-        fildes, buf, nbyte
-    )
-
-
-fn write(fildes: c_int, buf: Pointer[c_void], nbyte: c_size_t) -> c_int:
-    """Libc POSIX `write` function
-    Reference: https://man7.org/linux/man-pages/man3/write.3p.html
-    Fn signature: ssize_t write(int fildes, const void *buf, size_t nbyte).
-
-    Args: fildes: A File Descriptor.
-        buf: A pointer to a buffer to write.
-        nbyte: The number of bytes to write.
-    Returns: The number of bytes written or -1 in case of failure.
-    """
-    return external_call["write", c_ssize_t, c_int, Pointer[c_void], c_size_t](
-        fildes, buf, nbyte
-    )
-
-
-# --- ( Testing Functions ) ----------------------------------------------------
-
-
-fn __test_getaddrinfo__():
-    let ip_addr = "127.0.0.1"
-    let port = 8083
-
-    var servinfo = Pointer[addrinfo]().alloc(1)
-    servinfo.store(addrinfo())
-
-    var hints = addrinfo()
-    hints.ai_family = AF_INET
-    hints.ai_socktype = SOCK_STREAM
-    hints.ai_flags = AI_PASSIVE
-    # let hints_ptr =
-
-    let status = getaddrinfo(
-        to_char_ptr(ip_addr),
-        Pointer[UInt8](),
-        Pointer.address_of(hints),
-        Pointer.address_of(servinfo),
-    )
-    let msg_ptr = gai_strerror(c_int(status))
-    _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
-        to_char_ptr("gai_strerror: %s"), msg_ptr
-    )
-    let msg = c_charptr_to_string(msg_ptr)
-    print("getaddrinfo satus: " + msg)
-
-
-fn __test_socket_client__():
-    let ip_addr = "127.0.0.1"  # The server's hostname or IP address
-    let port = 8080  # The port used by the server
-    let address_family = AF_INET
-
-    let ip_buf = Pointer[c_void].alloc(4)
-    let conv_status = inet_pton(address_family, to_char_ptr(ip_addr), ip_buf)
-    let raw_ip = ip_buf.bitcast[c_uint]().load()
-
-    print("inet_pton: " + raw_ip.__str__() + " :: status: " + conv_status.__str__())
-
-    let bin_port = htons(UInt16(port))
-    print("htons: " + "\n" + bin_port.__str__())
-
-    var ai = sockaddr_in(address_family, bin_port, raw_ip, StaticTuple[8, c_char]())
-    let ai_ptr = Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
-
-    let sockfd = socket(address_family, SOCK_STREAM, 0)
-    if sockfd == -1:
-        print("Socket creation error")
-    print("sockfd: " + "\n" + sockfd.__str__())
-
-    if connect(sockfd, ai_ptr, sizeof[sockaddr_in]()) == -1:
-        _ = shutdown(sockfd, SHUT_RDWR)
-        print("Connection error")
-        return  # Ensure to exit if connection fails
-
-    let msg = to_char_ptr("Hello, world Server")
-    let bytes_sent = send(sockfd, msg, strlen(msg), 0)
-    if bytes_sent == -1:
-        print("Failed to send message")
-    else:
-        print("Message sent")
-    let buf_size = 1024
-    let buf = Pointer[UInt8]().alloc(buf_size)
-    let bytes_recv = recv(sockfd, buf, buf_size, 0)
-    if bytes_recv == -1:
-        print("Failed to receive message")
-    else:
-        print("Received Message: ")
-        print(String(buf.bitcast[Int8](), bytes_recv))
-
-    _ = shutdown(sockfd, SHUT_RDWR)
-    let close_status = close(sockfd)
-    if close_status == -1:
-        print("Failed to close socket")
-
-
-fn __test_socket_server__() raises:
-    let ip_addr = "127.0.0.1"
-    let port = 8083
-
-    let address_family = AF_INET
-    var ip_buf_size = 4
-    if address_family == AF_INET6:
-        ip_buf_size = 16
-
-    let ip_buf = Pointer[c_void].alloc(ip_buf_size)
-    let conv_status = inet_pton(address_family, to_char_ptr(ip_addr), ip_buf)
-    let raw_ip = ip_buf.bitcast[c_uint]().load()
-
-    print("inet_pton: " + raw_ip.__str__() + " :: status: " + conv_status.__str__())
-
-    let bin_port = htons(UInt16(port))
-    print("htons: " + "\n" + bin_port.__str__())
-
-    var ai = sockaddr_in(address_family, bin_port, raw_ip, StaticTuple[8, c_char]())
-    let ai_ptr = Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
-
-    let sockfd = socket(address_family, SOCK_STREAM, 0)
-    if sockfd == -1:
-        print("Socket creation error")
-    print("sockfd: " + "\n" + sockfd.__str__())
-
-    var yes: Int = 1
-    if (
-        setsockopt(
-            sockfd,
-            SOL_SOCKET,
-            SO_REUSEADDR,
-            Pointer[Int].address_of(yes).bitcast[c_void](),
-            sizeof[Int](),
-        )
-        == -1
-    ):
-        print("set socket options failed")
-
-    if bind(sockfd, ai_ptr, sizeof[sockaddr_in]()) == -1:
-        # close(sockfd)
-        _ = shutdown(sockfd, SHUT_RDWR)
-        print("Binding socket failed. Wait a few seconds and try again?")
-
-    if listen(sockfd, c_int(128)) == -1:
-        print("Listen failed.\n on sockfd " + sockfd.__str__())
-
-    print(
-        "server: started at "
-        + ip_addr
-        + ":"
-        + port.__str__()
-        + " on sockfd "
-        + sockfd.__str__()
-        + "Waiting for connections..."
-    )
-
-    let their_addr_ptr = Pointer[sockaddr].alloc(1)
-    var sin_size = socklen_t(sizeof[socklen_t]())
-    let new_sockfd = accept(
-        sockfd, their_addr_ptr, Pointer[socklen_t].address_of(sin_size)
-    )
-    if new_sockfd == -1:
-        print("Accept failed")
-        # close(sockfd)
-        _ = shutdown(sockfd, SHUT_RDWR)
-
-    let msg = "Hello, Mojo!"
-    if send(new_sockfd, to_char_ptr(msg).bitcast[c_void](), len(msg), 0) == -1:
-        print("Failed to send response")
-    print("Message sent succesfully")
-    _ = shutdown(sockfd, SHUT_RDWR)
-
-    let close_status = close(new_sockfd)
-    if close_status == -1:
-        print("Failed to close new_sockfd")

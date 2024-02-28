@@ -1,7 +1,7 @@
-from .external.libc import (
+from memory.unsafe import bitcast
+from .c.net import (
     socket,
     connect,
-    close,
     recv,
     send,
     shutdown,
@@ -10,6 +10,7 @@ from .external.libc import (
     inet_ntop,
     to_char_ptr,
     htons,
+    ntohs,
     strlen,
     AF_INET,
     SOCK_STREAM,
@@ -25,21 +26,22 @@ from .external.libc import (
     gai_strerror,
     c_charptr_to_string,
     c_int,
-    # SOL_SOCKET,
-    # SO_REUSEADDR,
-    # bind,
-    # listen,
-    # accept,
-    # setsockopt,
-    # socklen_t,
+    SOL_SOCKET,
+    SO_REUSEADDR,
+    bind,
+    listen,
+    accept,
+    setsockopt,
+    getsockopt,
+    getsockname,
+    socklen_t,
+    c_charptr_to_string
 )
-from memory.unsafe import bitcast
+from .c.file import close
+from .connection import SysConnection, TCPAddr
 
 
-fn get_ip_address(host: String):
-    # let ip_addr = "127.0.0.1"
-    # let port = 8083
-
+fn get_addr_info(host: String) raises -> addrinfo:
     var servinfo = Pointer[addrinfo]().alloc(1)
     servinfo.store(addrinfo())
 
@@ -56,53 +58,82 @@ fn get_ip_address(host: String):
         Pointer.address_of(hints),
         Pointer.address_of(servinfo),
     )
-    print(status)
     if status != 0:
-        print("getaddrinfo error")
+        print("getaddrinfo failed to execute with status:", status)
         let msg_ptr = gai_strerror(c_int(status))
         _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
             to_char_ptr("gai_strerror: %s"), msg_ptr
         )
         let msg = c_charptr_to_string(msg_ptr)
-        print("getaddrinfo satus: " + msg)
+        print("getaddrinfo error message: ", msg)
+    
+    if not servinfo:
+        print("servinfo is null")
+        raise Error("Failed to get address info. Pointer to addrinfo is null.")
 
-    var server_info = servinfo.load()
+    return servinfo.load()
 
-    # Cast sockaddr to sockaddr_in to be used in inet_ntop to get the IP address
-    # TODO: I'm supposed to traverse the resultant linked list using ai_next, but the next pointer is null.
-    # var si = servinfo
-    # var sa = server_info.ai_addr
-    # while si and not sa:
-    #     print("pointer is null")
-    #     si = server_info.ai_next
+fn get_ip_address(host: String) raises -> String:
+    """Get the IP address of a host."""
+    # Call getaddrinfo to get the IP address of the host.
+    let addrinfo = get_addr_info(host)
+    let ai_addr = addrinfo.ai_addr
+    if not ai_addr:
+        print("ai_addr is null")
+        raise Error("Failed to get IP address. getaddrinfo was called successfully, but ai_addr is null.")
+    
+    # Cast sockaddr struct to sockaddr_in struct and convert the binary IP to a string using inet_ntop.
+    let addr_in = ai_addr.bitcast[sockaddr_in]().load()
 
-    #     if not si:
-    #         print("si is null")
-    #         break
-    #     print("moved to next")
-    #     sa = si.load().ai_addr
+    return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, addrinfo.ai_family, addrinfo.ai_addrlen)
 
-    # if servinfo:
-    #     var addr_in = bitcast[sockaddr_in](server_info.ai_addr)
-    #     if not addr_in:
-    #         print("addr_in is null")
-    #         return
 
-    print(server_info.ai_addrlen)
-    if server_info.ai_addr:
-        print("ai_addr is not null")
-    # let buf = Pointer[UInt8]().alloc(1024)
-    # var ip_address_ptr = inet_ntoa(a)
-    # print(ip_address_ptr.load())
-    # inet_ntop(AF_INET, a.s_addr, buf, 1024)
-    # server_info.ai_next
+fn convert_port_to_binary(port: Int) -> UInt16:
+    return htons(UInt16(port))
 
-    # print(server_info.ai_family)
 
-    # for i in range(len(addr)):
-    #     print(addr[i])
+fn convert_binary_port_to_int(port: UInt16) -> Int:
+    return int(ntohs(port))
 
-    # print()
+
+fn convert_ip_to_binary(ip_address: String, address_family: Int) -> UInt32:
+    let ip_buffer = Pointer[c_void].alloc(4)
+    let status = inet_pton(address_family, to_char_ptr(ip_address), ip_buffer)
+    if status == -1:
+        print("Failed to convert IP address to binary")
+
+    return ip_buffer.bitcast[c_uint]().load()
+
+
+fn convert_binary_ip_to_string(owned ip_address: UInt32, address_family: Int32, address_length: UInt32) -> String:
+    """Convert a binary IP address to a string by calling inet_ntop.
+
+    Args:
+        ip_address: UInt32 - The binary IP address.
+        address_family: Int32 - The address family of the IP address.
+        address_length: UInt32 - The length of the address.
+
+    Returns:
+        String - The IP address as a string.
+    """
+    var ip_buffer = Pointer[c_void].alloc(16)
+    var ip_address_ptr = Pointer.address_of(ip_address).bitcast[c_void]()
+    _ = inet_ntop(address_family, ip_address_ptr, ip_buffer, 16)
+
+    var string_buf = ip_buffer.bitcast[Int8]()
+    return String(string_buf, 16)
+
+
+fn build_sockaddr_pointer(ip_address: String, port: Int, address_family: Int) -> Pointer[sockaddr]:
+    """Build a sockaddr pointer from an IP address and port number.
+    https://learn.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
+    https://learn.microsoft.com/en-us/windows/win32/api/ws2def/ns-ws2def-sockaddr_in.
+    """
+    let bin_port = convert_port_to_binary(port)
+    let bin_ip = convert_ip_to_binary(ip_address, address_family)
+
+    var ai = sockaddr_in(address_family, bin_port, bin_ip, StaticTuple[8, c_char]())
+    return Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
 
 
 @value
@@ -110,18 +141,25 @@ struct Socket():
     var sockfd: Int32
     var address_family: Int
     var socket_type: UInt8
+    var protocol: UInt8
     var _closed: Bool
 
-    fn __init__(inout self, address_family: Int = AF_INET, socket_type: UInt8 = SOCK_STREAM):
+    fn __init__(
+        inout self,
+        address_family: Int = AF_INET,
+        socket_type: UInt8 = SOCK_STREAM,
+        protocol: UInt8 = 0,
+    ):
         self.address_family = address_family
         self.socket_type = socket_type
+        self.protocol = protocol
+
         let sockfd = socket(address_family, SOCK_STREAM, 0)
         if sockfd == -1:
             print("Socket creation error")
         self.sockfd = sockfd
         self._closed = False
         
-    
     fn __enter__(self) -> Self:
         return self
     
@@ -129,42 +167,67 @@ struct Socket():
     #     if not self._closed:
     #         self.close()
 
-    # fn accept(self):
-    #     pass
+    @always_inline
+    fn accept(self) raises -> SysConnection:
+        let their_addr_ptr = Pointer[sockaddr].alloc(1)
+        var sin_size = socklen_t(sizeof[socklen_t]())
+        let new_sockfd = accept(
+            self.sockfd, their_addr_ptr, Pointer[socklen_t].address_of(sin_size)
+        )
+        if new_sockfd == -1:
+            print("Failed to accept connection")
+        # TODO: pass raddr to connection
+        return SysConnection(TCPAddr("", 0), TCPAddr("", 0), new_sockfd)
     
-    # fn bind(self):
-    #     pass
+    @always_inline
+    fn bind(self, address: String, port: Int):
+        let sockaddr_pointer = build_sockaddr_pointer(address, port, self.address_family)
+
+        if bind(self.sockfd, sockaddr_pointer, sizeof[sockaddr_in]()) == -1:
+            _ = shutdown(self.sockfd, SHUT_RDWR)
+            print("Binding socket failed. Wait a few seconds and try again?")
     
     # fn file_no(self) -> Int32:
     #     return self.sockfd
     
-    # fn get_sock_name(self):
-    #     pass
+    fn get_sock_name(self) raises -> UInt32:
+        let their_addr_ptr = Pointer[sockaddr].alloc(1)
+        var sin_size = socklen_t(sizeof[socklen_t]())
+        let status = getsockname(
+            self.sockfd, their_addr_ptr, Pointer[socklen_t].address_of(sin_size)
+        )
+        if status == -1:
+            raise Error("Failed to get socket name")
+        # return their_addr_ptr.load().sa_family
+        return sin_size
     
     # fn get_peer_name(self):
     #     pass
     
-    # fn get_sock_opt(self):
-    #     pass
+    fn get_sock_opt(self, option_name: Int) raises -> Int:
+        let option_value_pointer = Pointer[c_void].alloc(1)
+        var option_len = socklen_t(sizeof[socklen_t]())
+        var option_len_pointer = Pointer.address_of(option_len)
+        let status = getsockopt(self.sockfd, SOL_SOCKET, option_name, option_value_pointer, option_len_pointer)
+        if status == -1:
+            raise Error("getsockopt failed.")
+
+        return option_value_pointer.bitcast[Int]().load()
     
-    # fn set_sock_opt(self):
-        pass
+    fn set_sock_opt(self, option_name: Int, owned option_value: UInt8 = 1) raises:
+        """
+        """
+        var option_value_pointer = Pointer.address_of(option_value)
+        let status = setsockopt(self.sockfd, SOL_SOCKET, option_name, option_value_pointer, sizeof[c_void]())
+        if status == -1:
+            raise Error("setsockopt failed.")
                 
-    fn connect(self, host: String, port: Int):
-        let ip_addr = host
-        let address_family = AF_INET
-        let bin_port = htons(UInt16(port))
+    fn connect(self, address: String, port: Int):
+        let sockaddr_pointer = build_sockaddr_pointer(address, port, self.address_family)
 
-        let ip_buf = Pointer[c_void].alloc(4)
-        let conv_status = inet_pton(address_family, to_char_ptr(ip_addr), ip_buf)
-        let raw_ip = ip_buf.bitcast[c_uint]().load()
-
-        var ai = sockaddr_in(address_family, bin_port, raw_ip, StaticTuple[8, c_char]())
-        let ai_ptr = Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
-
-        if connect(self.sockfd, ai_ptr, sizeof[sockaddr_in]()) == -1:
+        if connect(self.sockfd, sockaddr_pointer, sizeof[sockaddr_in]()) == -1:
             self.shutdown()
-            return  # Ensure to exit if connection fails
+            return  # Ensure exit if connection fails
     
     fn send(self, header: String):
         let header_ptr = to_char_ptr(header)
