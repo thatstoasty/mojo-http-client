@@ -40,8 +40,12 @@ from .c.net import (
     AI_PASSIVE,
     SOL_SOCKET,
     SO_REUSEADDR,
+    SO_RCVTIMEO
 )
 from .c.file import close
+
+
+alias Seconds = Int
 
 
 fn get_addr_info(host: String) raises -> addrinfo:
@@ -211,6 +215,18 @@ struct Socket:
             raise Error("Failed to accept connection")
 
         return Self(new_sockfd, self.address_family, self.socket_type, self.protocol)
+    
+    fn listen(self, backlog: Int = 0) raises:
+        """Enable a server to accept connections.
+
+        Args:
+            backlog: Int - The maximum number of queued connections. Should be at least 0, and the maximum is system-dependent (usually 5).
+        """
+        var queued = backlog
+        if backlog < 0:
+            queued = 0
+        if listen(self.sockfd, queued) == -1:
+            raise Error("Failed to listen for connections")
 
     @always_inline
     fn bind(self, address: String, port: Int) raises:
@@ -322,6 +338,18 @@ struct Socket:
         if bytes_sent == -1:
             raise Error("Failed to send message")
     
+    fn send_all(self, data: Tensor[DType.int8]) raises:
+        """Send data to the socket. The socket must be connected to a remote socket."""
+        let header_pointer = data.data().address.bitcast[UInt8]()
+        var total_bytes_sent = 0
+
+        # Try to send all the data in the buffer. If it did not send all the data, keep trying but start from the offset of the last successful send.
+        while total_bytes_sent < data.bytecount():
+            let bytes_sent = send(self.sockfd, header_pointer.offset(total_bytes_sent), strlen(header_pointer.offset(total_bytes_sent)), 0)
+            if bytes_sent == -1:
+                raise Error("Failed to send message, wrote" + String(total_bytes_sent) + "bytes before failing.")
+            total_bytes_sent += bytes_sent
+    
     fn send_to(self, data: Tensor[DType.int8], address: String, port: Int) raises:
         """Send data to the a remote address by connecting to the remote socket before sending.
         The socket must be not already be connected to a remote socket.
@@ -360,3 +388,19 @@ struct Socket:
             raise Error("Failed to close socket")
 
         self._closed = True
+    
+    fn get_timeout(self) raises -> Seconds:
+        """Return the timeout value for the socket."""
+        return self.get_sock_opt(SO_RCVTIMEO)
+
+    fn set_timeout(self, duration: Seconds) raises:
+        """Set the timeout value for the socket.
+
+        Args:
+            duration: Seconds - The timeout duration in seconds.
+        """
+        self.set_sock_opt(SO_RCVTIMEO, duration)
+
+    fn send_file(self, file: FileHandle, offset: Int = 0) raises:
+        let data = file.read_bytes()
+        self.send_all(data)
