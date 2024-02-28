@@ -61,3 +61,4 @@ fn main() raises:
 - Add SSL support
 - Add HTTP/2 support
 - Add tests
+- Fix URI query params logic. String termination messes up the host name.

@@ -98,7 +98,7 @@ fn get_ip_address(host: String) raises -> String:
 
     return convert_binary_ip_to_string(
         addr_in.sin_addr.s_addr, addrinfo.ai_family, addrinfo.ai_addrlen
-    )
+    ).strip()
 
 
 fn convert_port_to_binary(port: Int) -> UInt16:

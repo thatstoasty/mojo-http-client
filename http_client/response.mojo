@@ -89,10 +89,10 @@ struct Response(Stringable):
         let chunks = split(response, "\r\n\r\n", 1)
         let lines = chunks[0].split("\n")
         let status_line = lines[0].split(" ")
-        
+
         var scheme_and_proto = status_line[0].split("/")
-        self.scheme = scheme_and_proto[0]
-        self.protocol = scheme_and_proto[1]
+        self.scheme = scheme_and_proto[0].tolower()
+        self.protocol = status_line[0]
         self.status_code = atol(status_line[1])
         self.status_message = status_line[2]
 
@@ -106,7 +106,7 @@ struct Response(Stringable):
         self.body = ""
         if len(chunks) > 1:
             self.body = chunks[1]
-
+        
     fn __str__(self) -> String:
         return self.original_message
 

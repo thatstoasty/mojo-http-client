@@ -24,7 +24,7 @@ struct URI:
     fn __init__(
         inout self,
         full_uri: String,
-    ) -> None:
+    ) raises -> None:
         self.raw_host = String()
         self.scheme = String()
         self.path = String()
@@ -35,6 +35,7 @@ struct URI:
         self.request_uri = String()
         self.username = String()
         self.password = String()
+        self.parse()
 
     fn __init__(
         inout self,
@@ -108,24 +109,26 @@ struct URI:
     fn parse(inout self) raises -> None:
         let raw_uri = String(self.full_uri)
 
-        # Defaults to HTTP/1.1
+        # Defaults to HTTP/1.1. TODO: Assume http for now, since nothing but http is supported.
         var proto_str: String = "HTTP/1.1"
+        _ = self.set_scheme("http")
 
         # Parse requestURI
         var n = raw_uri.rfind(" ")
-        if n < 0:
-            n = len(raw_uri)
-            proto_str = "HTTP/1.0"
-        elif n == 0:
-            raise Error("Request URI cannot be empty")
-        else:
-            let proto = raw_uri[n + 1 :]
-            if proto != "HTTP/1.1":
-                proto_str = proto
+        # if n < 0:
+        #     n = len(raw_uri)
+        #     proto_str = "HTTP/1.0"
+        # elif n == 0:
+        #     raise Error("Request URI cannot be empty")
+        # else:
+        #     let proto = raw_uri[n + 1 :]
+        #     if proto != "HTTP/1.1":
+        #         proto_str = proto
 
         var request_uri = raw_uri[:n]
 
         # Parse host from requestURI
+        # TODO: String null terminator issues are causing the last character of the host to be cut off.
         n = request_uri.find("://")
         if n >= 0:
             let host_and_port = request_uri[n + 3 :]
@@ -156,7 +159,6 @@ struct URI:
 
         self.path = normalise_path(self.raw_host, self.raw_host)
 
-        _ = self.set_scheme(proto_str)
         _ = self.set_request_uri(request_uri)
 
     fn set_username(inout self, username: String) -> Self:
