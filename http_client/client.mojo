@@ -1,4 +1,7 @@
 from collections.optional import Optional
+from memory.buffer import Buffer
+from memory.memory import memcpy
+from tensor import Tensor
 from .socket import Socket, get_ip_address
 from .stdlib_extensions.builtins import dict, HashableStr, bytes
 
@@ -27,6 +30,9 @@ fn build_request_message(
                 header += "Content-Length: " + pair.value + "\r\n"
             else:
                 header += String(pair.key) + ": " + pair.value + "\r\n"
+    else:
+        # default to closing the connection so socket.receive() does not hang
+        header += "Connection: close\r\n"
 
     # TODO: Only support dictionaries with string data for now
     if data:
@@ -65,9 +71,22 @@ struct HTTPClient:
         var socket = Socket()
         socket.connect(get_ip_address(self.host), self.port)
         socket.send(message)
-        var response = socket.receive()  # TODO: call receive until all data is fetched, receive should also just return bytes
+
+        # Response buffer to store all the data from the socket
+        # var response_buffer = Tensor[DType.int8](4096)
+        var response_buffer = Buffer[4096, DType.int8]().stack_allocation()
+
+        # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
+        var bytes_read = 0
+        while True:
+            var response = socket.receive()
+            if response.bytecount() == 0:
+                break
+            memcpy(response_buffer.data.offset(bytes_read), response.data(), response.bytecount())
+            bytes_read += response.bytecount()
+    
         # Use a StringRef to avoid double freeing the data pointer of the tensor. It is owned by the tensor, so a String would try freeing it twice.
-        var msg = StringRef(response.data(), response.bytecount())
+        var msg = StringRef(response_buffer.data, bytes_read)
         socket.shutdown()
         socket.close()
         return msg

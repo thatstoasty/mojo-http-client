@@ -287,7 +287,7 @@ struct Socket:
         if bytes_sent == -1:
             print("Failed to send message")
 
-    fn receive(self, bytes_to_receive: Int = 4096) raises -> Tensor[DType.int8]:
+    fn receive(self, bytes_to_receive: Int = 1024) raises -> Tensor[DType.int8]:
         let buf = Pointer[UInt8]().alloc(bytes_to_receive)
         let bytes_recieved = recv(self.sockfd, buf, bytes_to_receive, 0)
         if bytes_recieved == -1:
