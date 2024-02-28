@@ -1,5 +1,5 @@
 from collections.optional import Optional
-from .socket import Socket
+from .socket import Socket, get_ip_address
 from .stdlib_extensions.builtins import dict, HashableStr, bytes
 
 alias Headers = dict[HashableStr, String]
@@ -51,7 +51,6 @@ fn stringify_data(data: dict[HashableStr, String]) -> String:
 @value
 struct HTTPClient():
     var host: String
-    var ip: String # Temporary until getaddrinfo issue is resolved
     var port: Int
 
     fn send_request(
@@ -60,11 +59,11 @@ struct HTTPClient():
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None
-    ) -> String:
+    ) raises -> String:
         let message = build_request_message(self.host, path, method, headers, data)
         print(message)
         var socket = Socket()
-        socket.connect(self.ip, self.port)
+        socket.connect(get_ip_address(self.host), self.port)
         socket.send(message)
         let response = socket.receive() # TODO: call receive until all data is fetched, receive should also just return bytes
         socket.shutdown()
@@ -75,7 +74,7 @@ struct HTTPClient():
         self, 
         path: String,
         headers: Optional[Headers] = None,
-    ) -> String:
+    ) raises -> String:
         return self.send_request("GET", path, headers=headers)
     
     fn post(
@@ -83,7 +82,7 @@ struct HTTPClient():
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None
-    ) -> String:
+    ) raises -> String:
         return self.send_request("POST", path, headers=headers, data=data)
     
     fn put(
@@ -91,7 +90,7 @@ struct HTTPClient():
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None
-    ) -> String:
+    ) raises -> String:
         return self.send_request("PUT", path, headers=headers, data=data)
     
     fn delete(
@@ -99,7 +98,7 @@ struct HTTPClient():
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None
-    ) -> String:
+    ) raises -> String:
         return self.send_request("DELETE", path, headers=headers)
     
     fn patch(
@@ -107,20 +106,20 @@ struct HTTPClient():
         path: String,
         headers: Optional[Headers] = None,
         data: Optional[dict[HashableStr, String]] = None
-    ) -> String:
+    ) raises -> String:
         return self.send_request("PATCH", path, headers=headers, data=data)
     
     fn head(
         self, 
         path: String,
         headers: Optional[Headers] = None,
-    ) -> String:
+    ) raises -> String:
         return self.send_request("HEAD", path, headers=headers)
     
     fn options(
         self, 
         path: String,
         headers: Optional[Headers] = None,
-    ) -> String:
+    ) raises -> String:
         return self.send_request("DELETE", path, headers=headers)
     
