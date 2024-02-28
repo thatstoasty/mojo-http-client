@@ -26,6 +26,7 @@ from .c.net import (
 )
 from .c.file import close
 
+
 @value
 struct NetworkType:
     var value: String
@@ -106,7 +107,7 @@ fn split_host_port(hostport: String) raises -> HostPort:
 
 
 @value
-struct TCPAddr():
+struct TCPAddr:
     var ip: String
     var port: Int
     var zone: String  # IPv6 addressing zone
@@ -162,7 +163,7 @@ fn resolve_internet_addr(network: String, address: String) raises -> TCPAddr:
 
 
 @value
-struct SysConnection():
+struct SysConnection:
     var fd: c_int
     var raddr: TCPAddr
     var laddr: TCPAddr

@@ -66,6 +66,5 @@ fn main() raises:
 
 # TODO
 - Return a response object instead of a string. 
-- Domain to IP address translation via getaddrinfo (`ai_next` points to null pointer, so I'm unable to get the actual result)
 - Add SSL support
 - Add HTTP/2 support

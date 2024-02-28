@@ -4,12 +4,13 @@ from .stdlib_extensions.builtins import dict, HashableStr, bytes
 
 alias Headers = dict[HashableStr, String]
 
+
 fn build_request_message(
-    host: String, 
-    path: String, 
-    method: String, 
-    headers: Optional[Headers], 
-    data: Optional[dict[HashableStr, String]] = None
+    host: String,
+    path: String,
+    method: String,
+    headers: Optional[Headers],
+    data: Optional[dict[HashableStr, String]] = None,
 ) -> String:
     var header = method.toupper() + " " + path + " HTTP/1.1\r\n"
     header += "Host: " + host + "\r\n"
@@ -41,15 +42,14 @@ fn build_request_message(
 fn stringify_data(data: dict[HashableStr, String]) -> String:
     var result: String = "{"
     for pair in data.items():
-        result += '\"' + String(pair.key) + '\"' + ":" \
-        '\"' + pair.value + '\"'
-    
+        result += '"' + String(pair.key) + '"' + ':"' + pair.value + '"'
+
     result += "}"
     return result
 
 
 @value
-struct HTTPClient():
+struct HTTPClient:
     var host: String
     var port: Int
 
@@ -58,68 +58,67 @@ struct HTTPClient():
         method: String,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None
+        data: Optional[dict[HashableStr, String]] = None,
     ) raises -> String:
         let message = build_request_message(self.host, path, method, headers, data)
         print(message)
         var socket = Socket()
         socket.connect(get_ip_address(self.host), self.port)
         socket.send(message)
-        let response = socket.receive() # TODO: call receive until all data is fetched, receive should also just return bytes
+        let response = socket.receive()  # TODO: call receive until all data is fetched, receive should also just return bytes
         socket.shutdown()
         socket.close()
         return response
 
     fn get(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
     ) raises -> String:
         return self.send_request("GET", path, headers=headers)
-    
+
     fn post(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None
+        data: Optional[dict[HashableStr, String]] = None,
     ) raises -> String:
         return self.send_request("POST", path, headers=headers, data=data)
-    
+
     fn put(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None
+        data: Optional[dict[HashableStr, String]] = None,
     ) raises -> String:
         return self.send_request("PUT", path, headers=headers, data=data)
-    
+
     fn delete(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None
+        data: Optional[dict[HashableStr, String]] = None,
     ) raises -> String:
         return self.send_request("DELETE", path, headers=headers)
-    
+
     fn patch(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None
+        data: Optional[dict[HashableStr, String]] = None,
     ) raises -> String:
         return self.send_request("PATCH", path, headers=headers, data=data)
-    
+
     fn head(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
     ) raises -> String:
         return self.send_request("HEAD", path, headers=headers)
-    
+
     fn options(
-        self, 
+        self,
         path: String,
         headers: Optional[Headers] = None,
     ) raises -> String:
         return self.send_request("DELETE", path, headers=headers)
-    

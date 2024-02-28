@@ -57,7 +57,9 @@ struct HashableStr(HashableCollectionElement, Stringable):
 
 
 @value
-struct dict[K: HashableCollectionElement, V: CollectionElement](Sized, CollectionElement):
+struct dict[K: HashableCollectionElement, V: CollectionElement](
+    Sized, CollectionElement
+):
     var _keys: list[K]
     var _values: list[V]
     var _key_map: list[Int]

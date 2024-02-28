@@ -1,13 +1,4 @@
-from .types import (
-    c_char, 
-    c_int, 
-    c_ushort,
-    c_uint,
-    c_void,
-    c_size_t,
-    c_ssize_t,
-    strlen
-)
+from .types import c_char, c_int, c_ushort, c_uint, c_void, c_size_t, c_ssize_t, strlen
 from .file import O_CLOEXEC, O_NONBLOCK
 
 alias IPPROTO_IPV6 = 41
@@ -330,10 +321,11 @@ struct sockaddr_in6:
 @value
 @register_passable("trivial")
 struct addrinfo:
-    """Struct field ordering can vary based on platform. 
+    """Struct field ordering can vary based on platform.
     For MacOS, I had to swap the order of ai_canonname and ai_addr.
     https://stackoverflow.com/questions/53575101/calling-getaddrinfo-directly-from-python-ai-addr-is-null-pointer
     """
+
     var ai_flags: c_int
     var ai_family: c_int
     var ai_socktype: c_int

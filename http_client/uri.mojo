@@ -6,7 +6,7 @@ alias QueryParams = dict[HashableStr, String]
 
 
 @value
-struct URI():
+struct URI:
     var raw_host: String
     var host: String
     var scheme: String
@@ -92,7 +92,7 @@ struct URI():
     fn set_query_string(inout self, query_string: String) -> Self:
         self._query_string = query_string
         return self
-    
+
     fn set_query_string(inout self, query_params: QueryParams) raises -> Self:
         var params = DynamicVector[String]()
         for item in query_params.items():
