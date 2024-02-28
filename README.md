@@ -59,6 +59,5 @@ fn main() raises:
 ```
 
 # TODO
-- Return a response object instead of a string. 
 - Add SSL support
 - Add HTTP/2 support

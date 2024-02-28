@@ -68,7 +68,6 @@ struct HTTPClient:
         data: Optional[dict[HashableStr, String]] = None,
     ) raises -> Response:
         var message = build_request_message(self.host, path, method, headers, data)
-        print(message)
         var socket = Socket()
 
         # Steal pointer from the string and create a tensor from it. TODO: The message_len will break with unicode characters as they vary from 1-4 bytes.
@@ -76,7 +75,7 @@ struct HTTPClient:
         var bytes_to_send = Tensor(message._steal_ptr(), message_len)
         socket.send_to(bytes_to_send, get_ip_address(self.host), self.port)
 
-        # Response buffer to store all the data from the socket
+        # Response buffer to store all the data from the socket. TODO: Might need more than 4096 bytes, but how do I make the size dynamic?
         # var response_buffer = Tensor[DType.int8](4096)
         var response_buffer = Buffer[4096, DType.int8]().stack_allocation()
 

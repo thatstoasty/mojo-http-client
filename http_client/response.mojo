@@ -85,15 +85,11 @@ struct Response(Stringable):
     fn __init__(inout self, response: String) raises:
         self.original_message = response
 
-        # Split into status + headers and body
-        let chunks = split(response, "\n\n", 1)
-
-        for i in range(0, len(chunks), 1):
-            print("chunk", i)
-            print(chunks[i])
-
+        # Split into status + headers and body. TODO: Only supports HTTP/1.1 Format for now
+        let chunks = split(response, "\r\n\r\n", 1)
         let lines = chunks[0].split("\n")
         let status_line = lines[0].split(" ")
+        
         var scheme_and_proto = status_line[0].split("/")
         self.scheme = scheme_and_proto[0]
         self.protocol = scheme_and_proto[1]

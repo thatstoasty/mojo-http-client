@@ -17,7 +17,7 @@ fn test_post() raises:
     data["hello"] = "world"
 
     var response = client.post("/post", headers, data)
-    print(response)
+    print(response.body)
 
 
 # Simple GET request
