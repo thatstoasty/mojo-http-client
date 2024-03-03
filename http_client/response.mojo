@@ -86,20 +86,20 @@ struct Response(Stringable):
         self.original_message = response
 
         # Split into status + headers and body. TODO: Only supports HTTP/1.1 Format for now
-        let chunks = split(response, "\r\n\r\n", 1)
-        let lines = chunks[0].split("\n")
-        let status_line = lines[0].split(" ")
+        var chunks = split(response, "\r\n\r\n", 1)
+        var lines = chunks[0].split("\n")
+        var status_line = lines[0].split(" ")
 
         var scheme_and_proto = status_line[0].split("/")
-        self.scheme = scheme_and_proto[0].tolower()
+        self.scheme = scheme_and_proto[0].lower()
         self.protocol = status_line[0]
         self.status_code = atol(status_line[1])
         self.status_message = status_line[2]
 
         self.headers = dict[HashableStr, String]()
         for i in range(1, len(lines), 1):
-            let line = lines[i]
-            let parts = line.split(": ")
+            var line = lines[i]
+            var parts = line.split(": ")
             if len(parts) == 2:
                 self.headers[HashableStr(parts[0])] = parts[1]
 

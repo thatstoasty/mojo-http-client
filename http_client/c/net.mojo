@@ -57,7 +57,7 @@ alias EWOULDBLOCK = EAGAIN
 
 fn to_char_ptr(s: String) -> Pointer[c_char]:
     """Only ASCII-based strings."""
-    let ptr = Pointer[c_char]().alloc(len(s))
+    var ptr = Pointer[c_char]().alloc(len(s))
     for i in range(len(s)):
         ptr.store(i, ord(s[i]))
     return ptr
@@ -721,8 +721,8 @@ fn inet_pton(address_family: Int, address: String) -> Int:
     if address_family == AF_INET6:
         ip_buf_size = 16
 
-    let ip_buf = Pointer[c_void].alloc(ip_buf_size)
-    let conv_status = inet_pton(
+    var ip_buf = Pointer[c_void].alloc(ip_buf_size)
+    var conv_status = inet_pton(
         rebind[c_int](address_family), to_char_ptr(address), ip_buf
     )
     return ip_buf.bitcast[c_uint]().load().to_int()

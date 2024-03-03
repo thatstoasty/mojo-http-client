@@ -28,8 +28,8 @@ fn test_post() raises:
 # Simple GET request
 fn test_get() raises:
     print("Testing GET")
-    let client = HTTPClient("www.example.com", 80)
-    let response = client.get("/")
+    var client = HTTPClient("www.example.com", 80)
+    var response = client.get("/")
     testing.assert_equal(response.status_code, 200)
     # TODO: Printing response.status_message shows the correct message, but it shows up as None in the assert??
     # testing.assert_equal(response.status_message, "OK")
@@ -47,8 +47,8 @@ fn test_query_params() raises:
     _ = uri.set_query_string(query_params)
 
     # PUT request
-    let client = HTTPClient("www.httpbin.org", 80)
-    let response = client.put("/get")
+    var client = HTTPClient("www.httpbin.org", 80)
+    var response = client.put("/get")
     testing.assert_equal(response.status_code, 405)
     # TODO: Printing response.status_message shows the correct message, but it shows up as None in the assert??
     # testing.assert_equal(response.status_message, "OK")
