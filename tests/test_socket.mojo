@@ -6,7 +6,7 @@ from http_client.c.net import SO_REUSEADDR, PF_UNIX
 # TODO: There's some additional garbage added to the end of the ip address result. Taking a substring of [:-1] does NOT work while [:9] does
 # fn test_get_ip_address() raises:
 #     print("Testing get_ip_address")
-#     let ip = get_ip_address("localhost")
+#     var ip = get_ip_address("localhost")
 #     testing.assert_equal(ip, "127.0.0.1")
 
 

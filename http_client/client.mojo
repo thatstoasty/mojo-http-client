@@ -16,11 +16,11 @@ fn build_request_message(
     headers: Optional[Headers],
     data: Optional[dict[HashableStr, String]] = None,
 ) -> String:
-    var header = method.toupper() + " " + path + " HTTP/1.1\r\n"
+    var header = method.upper() + " " + path + " HTTP/1.1\r\n"
     header += "Host: " + host + "\r\n"
 
     if headers:
-        let headers_mapping = headers.value()
+        var headers_mapping = headers.value()
 
         for pair in headers_mapping.items():
             if pair.key == "Connection":
@@ -37,7 +37,7 @@ fn build_request_message(
 
     # TODO: Only support dictionaries with string data for now
     if data:
-        let data_string = stringify_data(data.value())
+        var data_string = stringify_data(data.value())
         header += "Content-Length: " + String(len((data_string))) + "\r\n"
         header += "Content-Type: application/json\r\n"
         header += "\r\n" + data_string + "\r\n"
@@ -71,13 +71,13 @@ struct HTTPClient:
         var socket = Socket()
 
         # Steal pointer from the string and create a tensor from it. TODO: The message_len will break with unicode characters as they vary from 1-4 bytes.
-        let message_len = len(message)
+        var message_len = len(message)
         var bytes_to_send = Tensor(message._steal_ptr(), message_len)
         socket.send_to(bytes_to_send, get_ip_address(self.host), self.port)
 
         # Response buffer to store all the data from the socket. TODO: Might need more than 4096 bytes, but how do I make the size dynamic?
         # var response_buffer = Tensor[DType.int8](4096)
-        var response_buffer = Buffer[4096, DType.int8]().stack_allocation()
+        var response_buffer = Buffer[DType.int8, 4096]().stack_allocation()
 
         # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
         var bytes_read = 0

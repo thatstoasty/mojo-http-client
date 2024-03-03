@@ -23,8 +23,8 @@ fn test_post() raises:
 # Simple GET request
 fn test_get() raises:
     print("Testing GET")
-    let client = HTTPClient("www.example.com", 80)
-    let response = client.get("/")
+    var client = HTTPClient("www.example.com", 80)
+    var response = client.get("/")
     print(response)
 
 
@@ -39,8 +39,8 @@ fn test_query_params() raises:
     _ = uri.set_query_string(query_params)
 
     # PUT request
-    let client = HTTPClient("www.httpbin.org", 80)
-    let response = client.put("/get")
+    var client = HTTPClient("www.httpbin.org", 80)
+    var response = client.put("/get")
     print(response)
 
 

@@ -59,7 +59,7 @@ fn get_addr_info(host: String) raises -> addrinfo:
 
     var host_ptr = to_char_ptr(host)
 
-    let status = getaddrinfo(
+    var status = getaddrinfo(
         host_ptr,
         Pointer[UInt8](),
         Pointer.address_of(hints),
@@ -67,11 +67,11 @@ fn get_addr_info(host: String) raises -> addrinfo:
     )
     if status != 0:
         print("getaddrinfo failed to execute with status:", status)
-        let msg_ptr = gai_strerror(c_int(status))
+        var msg_ptr = gai_strerror(c_int(status))
         _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
             to_char_ptr("gai_strerror: %s"), msg_ptr
         )
-        let msg = c_charptr_to_string(msg_ptr)
+        var msg = c_charptr_to_string(msg_ptr)
         print("getaddrinfo error message: ", msg)
 
     if not servinfo:
@@ -84,8 +84,8 @@ fn get_addr_info(host: String) raises -> addrinfo:
 fn get_ip_address(host: String) raises -> String:
     """Get the IP address of a host."""
     # Call getaddrinfo to get the IP address of the host.
-    let addrinfo = get_addr_info(host)
-    let ai_addr = addrinfo.ai_addr
+    var addrinfo = get_addr_info(host)
+    var ai_addr = addrinfo.ai_addr
     if not ai_addr:
         print("ai_addr is null")
         raise Error(
@@ -94,7 +94,7 @@ fn get_ip_address(host: String) raises -> String:
         )
 
     # Cast sockaddr struct to sockaddr_in struct and convert the binary IP to a string using inet_ntop.
-    let addr_in = ai_addr.bitcast[sockaddr_in]().load()
+    var addr_in = ai_addr.bitcast[sockaddr_in]().load()
 
     return convert_binary_ip_to_string(
         addr_in.sin_addr.s_addr, addrinfo.ai_family, addrinfo.ai_addrlen
@@ -110,8 +110,8 @@ fn convert_binary_port_to_int(port: UInt16) -> Int:
 
 
 fn convert_ip_to_binary(ip_address: String, address_family: Int) -> UInt32:
-    let ip_buffer = Pointer[c_void].alloc(4)
-    let status = inet_pton(address_family, to_char_ptr(ip_address), ip_buffer)
+    var ip_buffer = Pointer[c_void].alloc(4)
+    var status = inet_pton(address_family, to_char_ptr(ip_address), ip_buffer)
     if status == -1:
         print("Failed to convert IP address to binary")
 
@@ -146,8 +146,8 @@ fn build_sockaddr_pointer(
     https://learn.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
     https://learn.microsoft.com/en-us/windows/win32/api/ws2def/ns-ws2def-sockaddr_in.
     """
-    let bin_port = convert_port_to_binary(port)
-    let bin_ip = convert_ip_to_binary(ip_address, address_family)
+    var bin_port = convert_port_to_binary(port)
+    var bin_ip = convert_ip_to_binary(ip_address, address_family)
 
     var ai = sockaddr_in(address_family, bin_port, bin_ip, StaticTuple[8, c_char]())
     return Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
@@ -171,7 +171,7 @@ struct Socket:
         self.socket_type = socket_type
         self.protocol = protocol
 
-        let sockfd = socket(address_family, SOCK_STREAM, 0)
+        var sockfd = socket(address_family, SOCK_STREAM, 0)
         if sockfd == -1:
             print("Socket creation error")
         self.sockfd = sockfd
@@ -206,9 +206,9 @@ struct Socket:
         The return value is a connection where conn is a new socket object usable to send and receive data on the connection,
         and address is the address bound to the socket on the other end of the connection.
         """
-        let their_addr_ptr = Pointer[sockaddr].alloc(1)
+        var their_addr_ptr = Pointer[sockaddr].alloc(1)
         var sin_size = socklen_t(sizeof[socklen_t]())
-        let new_sockfd = accept(
+        var new_sockfd = accept(
             self.sockfd, their_addr_ptr, Pointer[socklen_t].address_of(sin_size)
         )
         if new_sockfd == -1:
@@ -236,7 +236,7 @@ struct Socket:
             address: String - The IP address to bind the socket to.
             port: Int - The port number to bind the socket to.
         """
-        let sockaddr_pointer = build_sockaddr_pointer(
+        var sockaddr_pointer = build_sockaddr_pointer(
             address, port, self.address_family
         )
 
@@ -255,14 +255,14 @@ struct Socket:
 
         # TODO: Add check to see if the socket is bound and error if not.
 
-        let socket_address_pointer = Pointer[sockaddr].alloc(1)
+        var socket_address_pointer = Pointer[sockaddr].alloc(1)
         var sin_size = socklen_t(sizeof[socklen_t]())
-        let status = getsockname(
+        var status = getsockname(
             self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
         )
         if status == -1:
             raise Error("Failed to get socket name")
-        let addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
+        var addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
 
         return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
@@ -272,24 +272,24 @@ struct Socket:
 
         # TODO: Add check to see if the socket is bound and error if not.
 
-        let socket_address_pointer = Pointer[sockaddr].alloc(1)
+        var socket_address_pointer = Pointer[sockaddr].alloc(1)
         var sin_size = socklen_t(sizeof[socklen_t]())
-        let status = getpeername(
+        var status = getpeername(
             self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
         )
         if status == -1:
             raise Error(
                 "Failed to get the address of the peer connected to the socket."
             )
-        let addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
+        var addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
 
         return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
     fn get_sock_opt(self, option_name: Int) raises -> Int:
-        let option_value_pointer = Pointer[c_void].alloc(1)
+        var option_value_pointer = Pointer[c_void].alloc(1)
         var option_len = socklen_t(sizeof[socklen_t]())
         var option_len_pointer = Pointer.address_of(option_len)
-        let status = getsockopt(
+        var status = getsockopt(
             self.sockfd,
             SOL_SOCKET,
             option_name,
@@ -309,7 +309,7 @@ struct Socket:
             option_value: UInt8 - The value to set the socket option to.
         """
         var option_value_pointer = Pointer.address_of(option_value)
-        let status = setsockopt(
+        var status = setsockopt(
             self.sockfd, SOL_SOCKET, option_name, option_value_pointer, sizeof[c_void]()
         )
         if status == -1:
@@ -322,7 +322,7 @@ struct Socket:
             address: String - The IP address to connect to.
             port: Int - The port number to connect to.
         """
-        let sockaddr_pointer = build_sockaddr_pointer(
+        var sockaddr_pointer = build_sockaddr_pointer(
             address, port, self.address_family
         )
 
@@ -332,20 +332,20 @@ struct Socket:
 
     fn send(self, data: Tensor[DType.int8]) raises:
         """Send data to the socket. The socket must be connected to a remote socket."""
-        let header_pointer = data.data().address.bitcast[UInt8]()
+        var header_pointer = data.data().address.bitcast[UInt8]()
 
-        let bytes_sent = send(self.sockfd, header_pointer, strlen(header_pointer), 0)
+        var bytes_sent = send(self.sockfd, header_pointer, strlen(header_pointer), 0)
         if bytes_sent == -1:
             raise Error("Failed to send message")
     
     fn send_all(self, data: Tensor[DType.int8]) raises:
         """Send data to the socket. The socket must be connected to a remote socket."""
-        let header_pointer = data.data().address.bitcast[UInt8]()
+        var header_pointer = data.data().address.bitcast[UInt8]()
         var total_bytes_sent = 0
 
         # Try to send all the data in the buffer. If it did not send all the data, keep trying but start from the offset of the last successful send.
         while total_bytes_sent < data.bytecount():
-            let bytes_sent = send(self.sockfd, header_pointer.offset(total_bytes_sent), strlen(header_pointer.offset(total_bytes_sent)), 0)
+            var bytes_sent = send(self.sockfd, header_pointer.offset(total_bytes_sent), strlen(header_pointer.offset(total_bytes_sent)), 0)
             if bytes_sent == -1:
                 raise Error("Failed to send message, wrote" + String(total_bytes_sent) + "bytes before failing.")
             total_bytes_sent += bytes_sent
@@ -359,14 +359,14 @@ struct Socket:
             address: String - The IP address to connect to.
             port: Int - The port number to connect to.
         """
-        let header_pointer = data.data().address.bitcast[UInt8]()
+        var header_pointer = data.data().address.bitcast[UInt8]()
 
         self.connect(address, port)
         self.send(data)
     
     fn receive(self, bytes_to_receive: Int = 1024) raises -> Tensor[DType.int8]:
-        let buf = Pointer[UInt8]().alloc(bytes_to_receive)
-        let bytes_recieved = recv(self.sockfd, buf, bytes_to_receive, 0)
+        var buf = Pointer[UInt8]().alloc(bytes_to_receive)
+        var bytes_recieved = recv(self.sockfd, buf, bytes_to_receive, 0)
         if bytes_recieved == -1:
             raise Error("Failed to receive message from socket.")
 
@@ -383,7 +383,7 @@ struct Socket:
         Once that happens, all future operations on the socket object will fail. The remote end will receive no more data (after queued data is flushed).
         """
         self.shutdown()
-        let close_status = close(self.sockfd)
+        var close_status = close(self.sockfd)
         if close_status == -1:
             raise Error("Failed to close socket")
 
@@ -402,5 +402,5 @@ struct Socket:
         self.set_sock_opt(SO_RCVTIMEO, duration)
 
     fn send_file(self, file: FileHandle, offset: Int = 0) raises:
-        let data = file.read_bytes()
+        var data = file.read_bytes()
         self.send_all(data)

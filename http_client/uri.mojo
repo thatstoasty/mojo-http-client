@@ -107,7 +107,7 @@ struct URI:
         return self
 
     fn parse(inout self) raises -> None:
-        let raw_uri = String(self.full_uri)
+        var raw_uri = String(self.full_uri)
 
         # Defaults to HTTP/1.1. TODO: Assume http for now, since nothing but http is supported.
         var proto_str: String = "HTTP/1.1"
@@ -121,7 +121,7 @@ struct URI:
         # elif n == 0:
         #     raise Error("Request URI cannot be empty")
         # else:
-        #     let proto = raw_uri[n + 1 :]
+        #     var proto = raw_uri[n + 1 :]
         #     if proto != "HTTP/1.1":
         #         proto_str = proto
 
@@ -131,7 +131,7 @@ struct URI:
         # TODO: String null terminator issues are causing the last character of the host to be cut off.
         n = request_uri.find("://")
         if n >= 0:
-            let host_and_port = request_uri[n + 3 :]
+            var host_and_port = request_uri[n + 3 :]
             n = host_and_port.find("/")
             if n >= 0:
                 self.host = host_and_port[:n]
