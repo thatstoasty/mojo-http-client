@@ -1,12 +1,31 @@
 from collections.optional import Optional
+from collections.dict import Dict, KeyElement
 from memory.buffer import Buffer
 from memory.memory import memcpy
 from tensor import Tensor
+from external.gojo.builtins import Bytes
 from .socket import Socket, get_ip_address
-from .stdlib_extensions.builtins import dict, HashableStr, bytes
 from .response import Response
 
-alias Headers = dict[HashableStr, String]
+
+@value
+struct StringKey(KeyElement):
+    var s: String
+
+    fn __init__(inout self, owned s: String):
+        self.s = s ^
+
+    fn __init__(inout self, s: StringLiteral):
+        self.s = String(s)
+
+    fn __hash__(self) -> Int:
+        return hash(self.s)
+
+    fn __eq__(self, other: Self) -> Bool:
+        return self.s == other.s
+
+
+alias Headers = Dict[StringKey, String]
 
 
 fn build_request_message(
@@ -14,7 +33,7 @@ fn build_request_message(
     path: String,
     method: String,
     headers: Optional[Headers],
-    data: Optional[dict[HashableStr, String]] = None,
+    data: Optional[Dict[StringKey, String]] = None,
 ) -> String:
     var header = method.upper() + " " + path + " HTTP/1.1\r\n"
     header += "Host: " + host + "\r\n"
@@ -23,14 +42,14 @@ fn build_request_message(
         var headers_mapping = headers.value()
 
         for pair in headers_mapping.items():
-            if pair.key == "Connection":
-                header += "Connection: " + pair.value + "\r\n"
-            elif pair.key == "Content-Type":
-                header += "Content-Type: " + pair.value + "\r\n"
-            elif pair.key == "Content-Length":
-                header += "Content-Length: " + pair.value + "\r\n"
+            if pair[].key == "Connection":
+                header += "Connection: " + pair[].value + "\r\n"
+            elif pair[].key == "Content-Type":
+                header += "Content-Type: " + pair[].value + "\r\n"
+            elif pair[].key == "Content-Length":
+                header += "Content-Length: " + pair[].value + "\r\n"
             else:
-                header += String(pair.key) + ": " + pair.value + "\r\n"
+                header += String(pair[].key.s) + ": " + pair[].value + "\r\n"
     else:
         # default to closing the connection so socket.receive() does not hang
         header += "Connection: close\r\n"
@@ -46,10 +65,10 @@ fn build_request_message(
     return header
 
 
-fn stringify_data(data: dict[HashableStr, String]) -> String:
+fn stringify_data(data: Dict[StringKey, String]) -> String:
     var result: String = "{"
     for pair in data.items():
-        result += '"' + String(pair.key) + '"' + ':"' + pair.value + '"'
+        result += '"' + String(pair[].key.s) + '"' + ':"' + pair[].value + '"'
 
     result += "}"
     return result
@@ -65,32 +84,40 @@ struct HTTPClient:
         method: String,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None,
+        data: Optional[Dict[StringKey, String]] = None,
     ) raises -> Response:
         var message = build_request_message(self.host, path, method, headers, data)
         var socket = Socket()
 
-        # Steal pointer from the string and create a tensor from it. TODO: The message_len will break with unicode characters as they vary from 1-4 bytes.
+        # TODO: The message_len will break with unicode characters as they vary from 1-4 bytes.
         var message_len = len(message)
-        var bytes_to_send = Tensor(message._steal_ptr(), message_len)
-        socket.send_to(bytes_to_send, get_ip_address(self.host), self.port)
+        var bytes_to_send = Bytes(message)
+        var bytes_sent = socket.send_to(
+            bytes_to_send, get_ip_address(self.host), self.port
+        )
+        if bytes_sent != message_len:
+            raise Error(
+                "Failed to send the entire message. Bytes sent:"
+                + String(bytes_sent)
+                + " Message length:"
+                + String(message_len)
+            )
 
         # Response buffer to store all the data from the socket. TODO: Might need more than 4096 bytes, but how do I make the size dynamic?
-        # var response_buffer = Tensor[DType.int8](4096)
         var response_buffer = Buffer[DType.int8, 4096]().stack_allocation()
 
         # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
         var bytes_read = 0
         while True:
             var byte_stream = socket.receive()
-            if byte_stream.bytecount() == 0:
+            if len(byte_stream) == 0:
                 break
             memcpy(
                 response_buffer.data.offset(bytes_read),
-                byte_stream.data(),
-                byte_stream.bytecount(),
+                Pointer[Int8](byte_stream._vector.data.value),
+                len(byte_stream),
             )
-            bytes_read += byte_stream.bytecount()
+            bytes_read += len(byte_stream)
 
         # Using a StringRef to avoid pointer double free shenanigans.
         var response = Response(StringRef(response_buffer.data, bytes_read))
@@ -109,7 +136,7 @@ struct HTTPClient:
         self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None,
+        data: Optional[Dict[StringKey, String]] = None,
     ) raises -> Response:
         return self.send_request("POST", path, headers=headers, data=data)
 
@@ -117,7 +144,7 @@ struct HTTPClient:
         self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None,
+        data: Optional[Dict[StringKey, String]] = None,
     ) raises -> Response:
         return self.send_request("PUT", path, headers=headers, data=data)
 
@@ -125,7 +152,7 @@ struct HTTPClient:
         self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None,
+        data: Optional[Dict[StringKey, String]] = None,
     ) raises -> Response:
         return self.send_request("DELETE", path, headers=headers)
 
@@ -133,7 +160,7 @@ struct HTTPClient:
         self,
         path: String,
         headers: Optional[Headers] = None,
-        data: Optional[dict[HashableStr, String]] = None,
+        data: Optional[Dict[StringKey, String]] = None,
     ) raises -> Response:
         return self.send_request("PATCH", path, headers=headers, data=data)
 
