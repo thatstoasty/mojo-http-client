@@ -1,7 +1,3 @@
-from time import now
-from .errors import panic
-
-
 alias Byte = Int8
 
 
@@ -57,14 +53,14 @@ struct Bytes(Stringable, Sized, CollectionElement):
         # If the internal vector was resized to a smaller size than what was already written, the write position should be moved back.
         if new_size < self.write_position:
             self.write_position = new_size
-
+        
     fn available(self) -> Int:
         return len(self._vector) - self.write_position
 
     fn __getitem__(self, index: Int) -> Int8:
         return self._vector[index]
 
-    fn __getitem__(self, limits: Slice) -> Self:
+    fn __getitem__(self, limits: Slice) raises -> Self:
         # TODO: Specifying no end to the span sets span end to this super large int for some reason.
         # Set it to len of the vector if that happens. Otherwise, if end is just too large in general, throw OOB error.
 
@@ -74,7 +70,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
         if limits.end == 9223372036854775807:
             end = self.size()
         elif limits.end > self.size() + 1:
-            panic(
+            raise Error(
                 "builtins.Bytes.__getitem__: Index out of range for limits.end."
                 " Received: "
                 + str(limits.end)
@@ -118,13 +114,13 @@ struct Bytes(Stringable, Sized, CollectionElement):
         return Bytes(new_vector)
 
     fn __iadd__(inout self: Self, other: Self):
-        # # Up the capacity if the the length of the internal vectors exceeds the current capacity. We are not checking the numbers of bytes written to the Bytes structs.
-        # var length_of_self = len(self._vector)
-        # var length_of_other = len(other._vector)
+        # Up the capacity if the the length of the internal vectors exceeds the current capacity. We are not checking the numbers of bytes written to the Bytes structs.
+        var length_of_self = len(self)
+        var length_of_other = len(other)
 
-        # var added_size = length_of_self + length_of_other
-        # if self._vector.capacity < added_size:
-        #     self._vector.reserve(added_size * 2)
+        var added_size = length_of_self + length_of_other
+        if self.size() < added_size:
+            self.resize(added_size * 2)
 
         # Copy over data starting from the write position.
         for i in range(len(other)):
@@ -139,6 +135,12 @@ struct Bytes(Stringable, Sized, CollectionElement):
 
     fn __repr__(self) -> String:
         return self.__str__()
+    
+    fn __contains__(self, item: Int8) -> Bool:
+        for i in range(len(self)):
+            if self[i] == item:
+                return True
+        return False
 
     fn append(inout self, value: Byte):
         """Appends the value to the end of the Bytes.
@@ -146,6 +148,9 @@ struct Bytes(Stringable, Sized, CollectionElement):
         Args:
             value: The value to append.
         """
+        # If the vector is full, resize it.
+        if self.write_position >= self.size():
+            self.resize(self.size() * 2)
         self[self.write_position] = value
 
     fn extend(inout self, value: String):
@@ -209,3 +214,31 @@ struct Bytes(Stringable, Sized, CollectionElement):
     fn capacity(self) -> Int:
         """Returns the capacity of the Bytes struct."""
         return self._vector.capacity
+
+    fn copy(self) -> Self:
+        """Returns a copy of the Bytes struct. Only copies up to what has been written to the Bytes struct."""
+        # Copy elements up to the write position, don't need to copy over empty elements from end of the vector.
+        var bytes_copy = Self(size=self.write_position)
+        for i in range(self.write_position):
+            bytes_copy.append(self._vector[i])
+        return bytes_copy
+    
+    fn get_bytes(self) -> DynamicVector[Int8]:
+        """
+        Returns a copy of the byte array of the string builder.
+
+        Returns:
+          The byte array of the string builder.
+        """
+        return self.copy()._vector
+      
+    fn get_null_terminated_bytes(self) -> DynamicVector[Int8]:
+        """
+        Returns a copy of the byte array of the string builder with a null terminator.
+
+        Returns:
+          The byte array of the string builder with a null terminator.
+        """
+        var new_bytes = self.copy()._vector
+        new_bytes.append(0)
+        return new_bytes

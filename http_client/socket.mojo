@@ -235,7 +235,7 @@ struct Socket:
         """Enable a server to accept connections.
 
         Args:
-            backlog: Int - The maximum number of queued connections. Should be at least 0, and the maximum is system-dependent (usually 5).
+            backlog: The maximum number of queued connections. Should be at least 0, and the maximum is system-dependent (usually 5).
         """
         var queued = backlog
         if backlog < 0:
@@ -249,7 +249,7 @@ struct Socket:
 
         Args:
             address: String - The IP address to bind the socket to.
-            port: Int - The port number to bind the socket to.
+            port: The port number to bind the socket to.
         """
         var sockaddr_pointer = build_sockaddr_pointer(
             address, port, self.address_family
@@ -261,10 +261,12 @@ struct Socket:
 
     @always_inline
     fn file_no(self) -> Int32:
+        """Return the file descriptor of the socket."""
         return self.sockfd
 
     @always_inline
     fn get_sock_name(self) raises -> String:
+        """Return the address of the socket."""
         if self._closed:
             raise Error("Socket is closed")
 
@@ -282,6 +284,7 @@ struct Socket:
         return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
     fn get_peer_name(self) raises -> String:
+        """Return the address of the peer connected to the socket."""
         if self._closed:
             raise Error("Socket is closed.")
 
@@ -301,6 +304,11 @@ struct Socket:
         return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
     fn get_sock_opt(self, option_name: Int) raises -> Int:
+        """Return the value of the given socket option.
+
+        Args:
+            option_name: The socket option to get.
+        """
         var option_value_pointer = Pointer[c_void].alloc(1)
         var option_len = socklen_t(sizeof[socklen_t]())
         var option_len_pointer = Pointer.address_of(option_len)
@@ -320,7 +328,7 @@ struct Socket:
         """Return the value of the given socket option.
 
         Args:
-            option_name: Int - The socket option to set.
+            option_name: The socket option to set.
             option_value: UInt8 - The value to set the socket option to.
         """
         var option_value_pointer = Pointer[UInt8].address_of(option_value)
@@ -335,7 +343,7 @@ struct Socket:
 
         Args:
             address: String - The IP address to connect to.
-            port: Int - The port number to connect to.
+            port: The port number to connect to.
         """
         var sockaddr_pointer = build_sockaddr_pointer(
             address, port, self.address_family
@@ -347,7 +355,11 @@ struct Socket:
             return  # Ensure exit if connection fails
 
     fn send(self, data: Bytes) raises -> Int:
-        """Send data to the socket. The socket must be connected to a remote socket."""
+        """Send data to the socket. The socket must be connected to a remote socket.
+        
+        Args:
+            data: The data to send.
+        """
         var header_pointer = Pointer[Int8](data._vector.data.value).bitcast[UInt8]()
 
         var bytes_sent = send(self.sockfd, header_pointer, strlen(header_pointer), 0)
@@ -357,7 +369,12 @@ struct Socket:
         return bytes_sent
 
     fn send_all(self, data: Bytes, max_attempts: Int = 3) raises:
-        """Send data to the socket. The socket must be connected to a remote socket."""
+        """Send data to the socket. The socket must be connected to a remote socket.
+        
+        Args:
+            data: The data to send.
+            max_attempts: The maximum number of attempts to send the data.
+        """
         var header_pointer = Pointer[Int8](data._vector.data.value).bitcast[UInt8]()
         var total_bytes_sent = 0
         var attempts = 0
@@ -485,7 +502,7 @@ struct SocketIO(io.Reader, io.Writer, io.Closer):
         modes.append("r")
         modes.append("w")
         if not contains(modes, mode):
-            raise Error("Invalid mode. Must be 'r', 'w'.")
+            raise Error("Invalid mode. Must be 'r', 'w', or 'rw'.")
 
         self.socket = socket
         self._mode = mode
@@ -536,9 +553,9 @@ fn create_connection(address: String, port: Int, *, timeout: Int = 3600):
     """Connect to a remote socket at address.
 
     Args:
-        address: String - The IP address to connect to.
-        port: Int - The port number to connect to.
-        timeout: Int - The timeout duration in seconds.
+        address: The IP address to connect to.
+        port: The port number to connect to.
+        timeout: The timeout duration in seconds.
     """
     ...
 
@@ -551,17 +568,15 @@ fn create_server(
     family: Int = AF_INET,
     backlog: Int = 0,
     reuse_port: Bool = False,
-    dualstack_ipv6: Bool = False,
 ):
     """Create a new server socket and bind it to the address and port.
 
     Args:
-        address: String - The IP address to bind the server to.
-        port: Int - The port number to bind the server to.
-        family: Int - The address family of the server socket.
-        backlog: Int - The maximum number of queued connections.
-        reuse_port: Bool - Whether to allow the socket to be bound to an address that is already in use.
-        dualstack_ipv6: Bool - Whether to allow the socket to accept both IPv4 and IPv6 connections.
+        address: The IP address to bind the server to.
+        port: The port number to bind the server to.
+        family: The address family of the server socket.
+        backlog: The maximum number of queued connections.
+        reuse_port: Whether to allow the socket to be bound to an address that is already in use.
     """
     ...
 
