@@ -1,8 +1,17 @@
-from .stdlib_extensions.builtins import dict, HashableStr
-from .stdlib_extensions.builtins.string import join
+from collections.dict import Dict
+from .client import StringKey
 
 
-alias QueryParams = dict[HashableStr, String]
+alias QueryParams = Dict[StringKey, String]
+
+
+fn join(separator: String, iterable: DynamicVector[String]) -> String:
+    var result: String = ""
+    for i in range(iterable.__len__()):
+        result += iterable[i]
+        if i != iterable.__len__() - 1:
+            result += separator
+    return result
 
 
 @value
@@ -97,7 +106,7 @@ struct URI:
     fn set_query_string(inout self, query_params: QueryParams) raises -> Self:
         var params = DynamicVector[String]()
         for item in query_params.items():
-            params.append(String(item.key) + "=" + item.value)
+            params.append(String(item[].key.s) + "=" + item[].value)
 
         self._query_string = join("&", params)
         return self

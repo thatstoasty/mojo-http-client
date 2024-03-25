@@ -185,9 +185,9 @@ alias SOCK_NONBLOCK = O_NONBLOCK
 alias AI_PASSIVE = 1
 alias AI_CANONNAME = 2
 alias AI_NUMERICHOST = 4
-alias AI_V4MAPPED = 8
-alias AI_ALL = 16
-alias AI_ADDRCONFIG = 32
+alias AI_V4MAPPED = 2048
+alias AI_ALL = 256
+alias AI_ADDRCONFIG = 1024
 alias AI_IDN = 64
 
 alias INET_ADDRSTRLEN = 16
@@ -197,32 +197,35 @@ alias SHUT_RD = 0
 alias SHUT_WR = 1
 alias SHUT_RDWR = 2
 
-alias SOL_SOCKET = 1
+alias SOL_SOCKET = 65535
 
 # Socket Options
 alias SO_DEBUG = 1
-alias SO_REUSEADDR = 2
-alias SO_TYPE = 3
-alias SO_ERROR = 4
-alias SO_DONTROUTE = 5
-alias SO_BROADCAST = 6
-alias SO_SNDBUF = 7
-alias SO_RCVBUF = 8
-alias SO_KEEPALIVE = 9
-alias SO_OOBINLINE = 10
+alias SO_REUSEADDR = 4
+alias SO_TYPE = 4104
+alias SO_ERROR = 4103
+alias SO_DONTROUTE = 16
+alias SO_BROADCAST = 32
+alias SO_SNDBUF = 4097
+alias SO_RCVBUF = 4098
+alias SO_KEEPALIVE = 8
+alias SO_OOBINLINE = 256
+alias SO_LINGER = 128
+alias SO_REUSEPORT = 512
+alias SO_RCVLOWAT = 4100
+alias SO_SNDLOWAT = 4099
+alias SO_RCVTIMEO = 4102
+alias SO_SNDTIMEO = 4101
+alias SO_RCVTIMEO_OLD = 4102
+alias SO_SNDTIMEO_OLD = 4101
+alias SO_ACCEPTCONN = 2
+
+# unsure of these socket options, they weren't available via python
 alias SO_NO_CHECK = 11
 alias SO_PRIORITY = 12
-alias SO_LINGER = 13
 alias SO_BSDCOMPAT = 14
-alias SO_REUSEPORT = 15
 alias SO_PASSCRED = 16
 alias SO_PEERCRED = 17
-alias SO_RCVLOWAT = 18
-alias SO_SNDLOWAT = 19
-alias SO_RCVTIMEO = 20
-alias SO_SNDTIMEO = 21
-alias SO_RCVTIMEO_OLD = 20
-alias SO_SNDTIMEO_OLD = 21
 alias SO_SECURITY_AUTHENTICATION = 22
 alias SO_SECURITY_ENCRYPTION_TRANSPORT = 23
 alias SO_SECURITY_ENCRYPTION_NETWORK = 24
@@ -233,7 +236,6 @@ alias SO_GET_FILTER = SO_ATTACH_FILTER
 alias SO_PEERNAME = 28
 alias SO_TIMESTAMP = 29
 alias SO_TIMESTAMP_OLD = 29
-alias SO_ACCEPTCONN = 30
 alias SO_PEERSEC = 31
 alias SO_SNDBUFFORCE = 32
 alias SO_RCVBUFFORCE = 33
@@ -482,7 +484,8 @@ fn setsockopt(
     Reference: https://man7.org/linux/man-pages/man3/setsockopt.3p.html
     Fn signature: int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len).
 
-    Args: socket: A File Descriptor.
+    Args:
+        socket: A File Descriptor.
         level: The protocol level.
         option_name: The option to set.
         option_value: A pointer to the value to set.
