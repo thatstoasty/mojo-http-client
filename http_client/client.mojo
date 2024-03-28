@@ -1,9 +1,7 @@
 from collections.optional import Optional
 from collections.dict import Dict, KeyElement
-from memory.buffer import Buffer
-from memory.memory import memcpy
-from tensor import Tensor
 from external.gojo.builtins import Bytes
+from external.gojo.strings import StringBuilder
 from .socket import Socket, get_ip_address
 from .response import Response
 
@@ -23,6 +21,12 @@ struct StringKey(KeyElement):
 
     fn __eq__(self, other: Self) -> Bool:
         return self.s == other.s
+
+    fn __ne__(self, other: Self) -> Bool:
+        return self.s != other.s
+
+    fn __str__(self) -> String:
+        return self.s
 
 
 alias Headers = Dict[StringKey, String]
@@ -66,12 +70,26 @@ fn build_request_message(
 
 
 fn stringify_data(data: Dict[StringKey, String]) -> String:
-    var result: String = "{"
-    for pair in data.items():
-        result += '"' + String(pair[].key.s) + '"' + ':"' + pair[].value + '"'
+    var key_count = data.size
+    var builder = StringBuilder()
+    _ = builder.write_string("{")
 
-    result += "}"
-    return result
+    var key_index = 0
+    for pair in data.items():
+        _ = builder.write_string('"')
+        _ = builder.write_string(pair[].key.s)
+        _ = builder.write_string('"')
+        _ = builder.write_string(':"')
+        _ = builder.write_string(pair[].value)
+        _ = builder.write_string('"')
+
+        # Add comma for all elements except last
+        if key_index != key_count - 1:
+            _ = builder.write_string(",")
+            key_index += 1
+
+    _ = builder.write_string("}")
+    return str(builder)
 
 
 @value
@@ -104,7 +122,7 @@ struct HTTPClient:
             )
 
         # Response buffer to store all the data from the socket. TODO: Might need more than 4096 bytes, but how do I make the size dynamic?
-        var response_buffer = Buffer[DType.int8, 4096]().stack_allocation()
+        var response_buffer = Bytes(4096)
 
         # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
         var bytes_read = 0
@@ -112,15 +130,12 @@ struct HTTPClient:
             var byte_stream = socket.receive()
             if len(byte_stream) == 0:
                 break
-            memcpy(
-                response_buffer.data.offset(bytes_read),
-                Pointer[Int8](byte_stream._vector.data.value),
-                len(byte_stream),
-            )
+            
+            response_buffer += byte_stream
             bytes_read += len(byte_stream)
 
         # Using a StringRef to avoid pointer double free shenanigans.
-        var response = Response(StringRef(response_buffer.data, bytes_read))
+        var response = Response(response_buffer)
         socket.shutdown()
         socket.close()
         return response

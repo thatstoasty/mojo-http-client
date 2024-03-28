@@ -64,9 +64,9 @@ from .client import Headers
 
 fn split(
     input_string: String, sep: String = " ", owned maxsplit: Int = -1
-) -> DynamicVector[String]:
+) -> List[String]:
     """The separator can be multiple characters long."""
-    var result = DynamicVector[String]()
+    var result = List[String]()
     if maxsplit == 0:
         result.append(input_string)
         return result
@@ -79,7 +79,7 @@ fn split(
 
         return result
 
-    var output = DynamicVector[String]()
+    var output = List[String]()
     var start = 0
     var split_count = 0
 

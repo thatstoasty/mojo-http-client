@@ -5,7 +5,7 @@ from .client import StringKey
 alias QueryParams = Dict[StringKey, String]
 
 
-fn join(separator: String, iterable: DynamicVector[String]) -> String:
+fn join(separator: String, iterable: List[String]) -> String:
     var result: String = ""
     for i in range(iterable.__len__()):
         result += iterable[i]
@@ -104,7 +104,7 @@ struct URI:
         return self
 
     fn set_query_string(inout self, query_params: QueryParams) raises -> Self:
-        var params = DynamicVector[String]()
+        var params = List[String]()
         for item in query_params.items():
             params.append(String(item[].key.s) + "=" + item[].value)
 

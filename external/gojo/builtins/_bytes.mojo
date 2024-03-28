@@ -1,6 +1,5 @@
 from .errors import panic
 
-
 alias Byte = Int8
 
 
@@ -15,24 +14,24 @@ struct Bytes(Stringable, Sized, CollectionElement):
     even some_bytes[7] = some_other_byte (the latter must be only one byte long).
     """
 
-    var _vector: DynamicVector[Int8]
+    var _vector: List[Int8]
     var write_position: Int
 
     fn __init__(inout self, size: Int = 0):
         self.write_position = 0
         if size != 0:
-            self._vector = DynamicVector[Int8](capacity=size)
+            self._vector = List[Int8](capacity=size)
             for i in range(size):
                 self._vector.append(0)
         else:
-            self._vector = DynamicVector[Int8]()
+            self._vector = List[Int8]()
 
-    fn __init__(inout self, owned vector: DynamicVector[Int8]):
+    fn __init__(inout self, owned vector: List[Int8]):
         self.write_position = len(vector)
         self._vector = vector
 
     fn __init__(inout self, *strs: String):
-        self._vector = DynamicVector[Int8]()
+        self._vector = List[Int8]()
         var total_length = 0
         for string in strs:
             self._vector.extend(string[].as_bytes())
@@ -70,7 +69,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
         # TODO: If no end was given, then it defaults to that large int.
         # Accidentally including the 0 (null) characters will mess up strings due to null termination. __str__ expects the exact length of the string from self.write_position.
         var end = limits.end
-        if limits.end == 9223372036854775807:
+        if limits.end == 2147483647:
             end = self.size()
         elif limits.end > self.size() + 1:
             panic(
@@ -115,11 +114,11 @@ struct Bytes(Stringable, Sized, CollectionElement):
         return not self.__eq__(other)
 
     fn __add__(self, other: Self) -> Self:
-        var new_vector = DynamicVector[Int8](capacity=len(self) + len(other))
+        var new_vector = List[Int8](capacity=len(self) + len(other))
         for i in range(len(self)):
-            new_vector.push_back(self[i])
+            new_vector.append(self[i])
         for i in range(len(other)):
-            new_vector.push_back(other[i])
+            new_vector.append(other[i])
         return Bytes(new_vector)
 
     fn __iadd__(inout self: Self, other: Self):
@@ -170,7 +169,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
         """
         self += value
 
-    fn extend(inout self, value: DynamicVector[Int8]):
+    fn extend(inout self, value: List[Int8]):
         """Appends the values to the end of the Bytes.
 
         Args:
@@ -232,7 +231,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
             bytes_copy.append(self._vector[i])
         return bytes_copy
     
-    fn get_bytes(self) -> DynamicVector[Int8]:
+    fn get_bytes(self) -> List[Int8]:
         """
         Returns a copy of the byte array of the string builder.
 
@@ -241,7 +240,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
         """
         return self.copy()._vector
       
-    fn get_null_terminated_bytes(self) -> DynamicVector[Int8]:
+    fn get_null_terminated_bytes(self) -> List[Int8]:
         """
         Returns a copy of the byte array of the string builder with a null terminator.
 

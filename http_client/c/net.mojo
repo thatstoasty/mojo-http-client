@@ -291,14 +291,14 @@ struct in_addr:
 @value
 @register_passable("trivial")
 struct in6_addr:
-    var s6_addr: StaticTuple[16, c_char]
+    var s6_addr: StaticTuple[c_char, 16]
 
 
 @value
 @register_passable("trivial")
 struct sockaddr:
     var sa_family: sa_family_t
-    var sa_data: StaticTuple[14, c_char]
+    var sa_data: StaticTuple[c_char, 14]
 
 
 @value
@@ -307,7 +307,7 @@ struct sockaddr_in:
     var sin_family: sa_family_t
     var sin_port: in_port_t
     var sin_addr: in_addr
-    var sin_zero: StaticTuple[8, c_char]
+    var sin_zero: StaticTuple[c_char, 8]
 
 
 @value

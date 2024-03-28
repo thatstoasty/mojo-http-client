@@ -1,15 +1,15 @@
 @value
 struct Str:
-    var vector: DynamicVector[c_char]
+    var vector: List[c_char]
 
     fn __init__(inout self, string: String):
-        self.vector = DynamicVector[c_char](capacity=len(string) + 1)
+        self.vector = List[c_char](capacity=len(string) + 1)
         for i in range(len(string)):
-            self.vector.push_back(ord(string[i]))
-        self.vector.push_back(0)
+            self.vector.append(ord(string[i]))
+        self.vector.append(0)
 
     fn __init__(inout self, size: Int):
-        self.vector = DynamicVector[c_char]()
+        self.vector = List[c_char]()
         self.vector.resize(size + 1, 0)
 
     fn __len__(self) -> Int:

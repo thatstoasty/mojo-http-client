@@ -160,7 +160,7 @@ fn build_sockaddr_pointer(
     var bin_port = convert_port_to_binary(port)
     var bin_ip = convert_ip_to_binary(ip_address, address_family)
 
-    var ai = sockaddr_in(address_family, bin_port, bin_ip, StaticTuple[8, c_char]())
+    var ai = sockaddr_in(address_family, bin_port, bin_ip, StaticTuple[c_char, 8]())
     return Pointer[sockaddr_in].address_of(ai).bitcast[sockaddr]()
 
 
@@ -496,18 +496,12 @@ struct Socket:
     #     self.set_socket_option(SO_RCVTIMEO, duration)
 
     fn send_file(self, file: FileHandle, offset: Int = 0) raises:
-        var data = file.read_bytes()
-        var bytes = Bytes(4096)
-        var count = 0
-
-        for i in range(data.bytecount()):
-            bytes[i + 0] = data[i]
-            count += 1
+        var bytes = Bytes(file.read_bytes())
 
         self.send_all(bytes)
 
 
-fn contains(vector: DynamicVector[String], value: String) -> Bool:
+fn contains(vector: List[String], value: String) -> Bool:
     for i in range(vector.size):
         if vector[i] == value:
             return True
@@ -522,7 +516,7 @@ struct SocketIO(io.Reader, io.Writer, io.Closer):
     var _timeout_occurred: Bool
 
     fn __init__(inout self, socket: Socket, mode: String) raises:
-        var modes = DynamicVector[String]()
+        var modes = List[String]()
         modes.append("r")
         modes.append("w")
         if not contains(modes, mode):
