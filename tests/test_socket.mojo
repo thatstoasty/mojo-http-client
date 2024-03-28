@@ -1,15 +1,27 @@
-from testing import testing
-from http_client.socket import get_ip_address, Socket
+from tests.wrapper import MojoTest
+from external.gojo.builtins import Bytes
+from http_client.socket import get_ip_address, Socket, SocketIO
 from http_client.c.net import SO_REUSEADDR, PF_UNIX
 
 
-# TODO: There's some additional garbage added to the end of the ip address result. Taking a substring of [:-1] does NOT work while [:9] does
-# fn test_get_ip_address() raises:
-#     print("Testing get_ip_address")
-#     var ip = get_ip_address("localhost")
-#     testing.assert_equal(ip, "127.0.0.1")
+fn test_get_ip_address() raises:
+    var test = MojoTest("Testing socket.get_ip_address")
+    var ip = get_ip_address("localhost")
+    test.assert_equal(ip, "127.0.0.1")
 
 
-fn run_tests() raises:
-    print("\n\x1B[38;2;249;38;114mRunning socket.mojo tests\x1B[0m")
-    # test_get_ip_address()
+fn test_socket_io() raises:
+    var test = MojoTest("Testing socket.SocketIO")
+    var socket = Socket()
+    socket.connect(get_ip_address("www.example.com"), 80)
+    var io = SocketIO(socket ^, "w")
+    var result = io.write(Bytes("GET / HTTP/1.1\r\n"))
+    if result.has_error():
+        raise result.unwrap_error().error
+    test.assert_equal(result.value, 16)
+    io.close()
+
+
+fn main() raises:
+    test_get_ip_address()
+    test_socket_io()

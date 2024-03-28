@@ -46,7 +46,9 @@ from .c.file import close
 from external.gojo.builtins import Bytes, Result, WrappedError, copy
 import external.gojo.io
 
+
 alias Seconds = Int
+alias SocketClosedError = Error("Socket: Socket is already closed")
 
 
 fn get_addr_info(host: String) raises -> addrinfo:
@@ -125,19 +127,27 @@ fn convert_binary_ip_to_string(
     """Convert a binary IP address to a string by calling inet_ntop.
 
     Args:
-        ip_address: UInt32 - The binary IP address.
-        address_family: Int32 - The address family of the IP address.
-        address_length: UInt32 - The length of the address.
+        ip_address: The binary IP address.
+        address_family: The address family of the IP address.
+        address_length: The length of the address.
 
     Returns:
-        String - The IP address as a string.
+        The IP address as a string.
     """
+    # It seems like the len of the buffer depends on the length of the string IP.
+    # Allocating 10 works for localhost (127.0.0.1) which I suspect is 9 bytes + 1 null terminator byte. So max should be 16 (15 + 1).
     var ip_buffer = Pointer[c_void].alloc(16)
     var ip_address_ptr = Pointer.address_of(ip_address).bitcast[c_void]()
     _ = inet_ntop(address_family, ip_address_ptr, ip_buffer, 16)
 
     var string_buf = ip_buffer.bitcast[Int8]()
-    return String(string_buf, 16)
+    var index = 0
+    while True:
+        if string_buf[index] == 0:
+            break
+        index += 1
+
+    return StringRef(string_buf, index)
 
 
 fn build_sockaddr_pointer(
@@ -200,11 +210,11 @@ struct Socket:
     fn __enter__(self) -> Self:
         return self
 
-    fn __exit__(inout self) raises:
-        if self._is_connected:
-            self.shutdown()
-        if not self._closed:
-            self.close()
+    # fn __exit__(inout self) raises:
+    #     if self._is_connected:
+    #         self.shutdown()
+    #     if not self._closed:
+    #         self.close()
 
     fn __del__(owned self):
         if self._is_connected:
@@ -213,7 +223,7 @@ struct Socket:
             try:
                 self.close()
             except e:
-                print("Failed to close socket during deletion: ", e)
+                print("Failed to close socket during deletion:", e)
 
     @always_inline
     fn accept(self) raises -> Self:
@@ -247,6 +257,14 @@ struct Socket:
     fn bind(self, address: String, port: Int) raises:
         """Bind the socket to address. The socket must not already be bound. (The format of address depends on the address family).
 
+        When a socket is created with Socket(), it exists in a name
+        space (address family) but has no address assigned to it.  bind()
+        assigns the address specified by addr to the socket referred to
+        by the file descriptor sockfd.  addrlen specifies the size, in
+        bytes, of the address structure pointed to by addr.
+        Traditionally, this operation is called 'assigning a name to a
+        socket'.
+
         Args:
             address: String - The IP address to bind the socket to.
             port: The port number to bind the socket to.
@@ -268,42 +286,45 @@ struct Socket:
     fn get_sock_name(self) raises -> String:
         """Return the address of the socket."""
         if self._closed:
-            raise Error("Socket is closed")
+            raise SocketClosedError
 
         # TODO: Add check to see if the socket is bound and error if not.
 
-        var socket_address_pointer = Pointer[sockaddr].alloc(1)
-        var sin_size = socklen_t(sizeof[socklen_t]())
+        var local_address_ptr = Pointer[sockaddr].alloc(1)
+        var local_address_ptr_size = socklen_t(sizeof[sockaddr]())
         var status = getsockname(
-            self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
+            self.sockfd,
+            local_address_ptr,
+            Pointer[socklen_t].address_of(local_address_ptr_size),
         )
         if status == -1:
-            raise Error("Failed to get socket name")
-        var addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
+            raise Error("Socket.get_sock_name: Failed to get address of local socket.")
+        var addr_in = local_address_ptr.bitcast[sockaddr_in]().load()
 
         return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
     fn get_peer_name(self) raises -> String:
         """Return the address of the peer connected to the socket."""
         if self._closed:
-            raise Error("Socket is closed.")
+            raise SocketClosedError
 
         # TODO: Add check to see if the socket is bound and error if not.
-
-        var socket_address_pointer = Pointer[sockaddr].alloc(1)
-        var sin_size = socklen_t(sizeof[socklen_t]())
+        var remote_address_ptr = Pointer[sockaddr].alloc(1)
+        var remote_address_ptr_size = socklen_t(sizeof[sockaddr]())
         var status = getpeername(
-            self.sockfd, socket_address_pointer, Pointer[socklen_t].address_of(sin_size)
+            self.sockfd,
+            remote_address_ptr,
+            Pointer[socklen_t].address_of(remote_address_ptr_size),
         )
         if status == -1:
-            raise Error(
-                "Failed to get the address of the peer connected to the socket."
-            )
-        var addr_in = socket_address_pointer.bitcast[sockaddr_in]().load()
+            raise Error("Socket.get_peer_name: Failed to get address of remote socket.")
+
+        # Cast sockaddr struct to sockaddr_in to convert binary IP to string.
+        var addr_in = remote_address_ptr.bitcast[sockaddr_in]().load()
 
         return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, AF_INET, 16)
 
-    fn get_sock_opt(self, option_name: Int) raises -> Int:
+    fn get_socket_option(self, option_name: Int) raises -> Int:
         """Return the value of the given socket option.
 
         Args:
@@ -320,23 +341,24 @@ struct Socket:
             option_len_pointer,
         )
         if status == -1:
-            raise Error("getsockopt failed.")
+            raise Error("Socket.get_sock_opt failed with status: " + str(status))
 
         return option_value_pointer.bitcast[Int]().load()
 
-    fn set_sock_opt(self, option_name: Int, owned option_value: UInt8 = 1) raises:
+    fn set_socket_option(self, option_name: Int, owned option_value: UInt8 = 1) raises:
         """Return the value of the given socket option.
 
         Args:
             option_name: The socket option to set.
-            option_value: UInt8 - The value to set the socket option to.
+            option_value: The value to set the socket option to.
         """
-        var option_value_pointer = Pointer[UInt8].address_of(option_value)
+        var option_value_pointer = Pointer[c_void].address_of(option_value)
+        var option_len = sizeof[socklen_t]()
         var status = setsockopt(
-            self.sockfd, SOL_SOCKET, option_name, option_value_pointer, sizeof[c_int]()
+            self.sockfd, SOL_SOCKET, option_name, option_value_pointer, option_len
         )
         if status == -1:
-            raise Error("setsockopt failed.")
+            raise Error("Socket.set_sock_opt failed with status: " + str(status))
 
     fn connect(self, address: String, port: Int):
         """Connect to a remote socket at address.
@@ -356,7 +378,7 @@ struct Socket:
 
     fn send(self, data: Bytes) raises -> Int:
         """Send data to the socket. The socket must be connected to a remote socket.
-        
+
         Args:
             data: The data to send.
         """
@@ -370,7 +392,7 @@ struct Socket:
 
     fn send_all(self, data: Bytes, max_attempts: Int = 3) raises:
         """Send data to the socket. The socket must be connected to a remote socket.
-        
+
         Args:
             data: The data to send.
             max_attempts: The maximum number of attempts to send the data.
@@ -450,7 +472,8 @@ struct Socket:
 
     fn close(inout self) raises:
         """Mark the socket closed.
-        Once that happens, all future operations on the socket object will fail. The remote end will receive no more data (after queued data is flushed).
+        Once that happens, all future operations on the socket object will fail.
+        The remote end will receive no more data (after queued data is flushed).
         """
         self.shutdown()
         var close_status = close(self.sockfd)
@@ -459,17 +482,18 @@ struct Socket:
 
         self._closed = True
 
-    fn get_timeout(self) raises -> Seconds:
-        """Return the timeout value for the socket."""
-        return self.get_sock_opt(SO_RCVTIMEO)
+    # TODO: Trying to set timeout fails, but some other options don't?
+    # fn get_timeout(self) raises -> Seconds:
+    #     """Return the timeout value for the socket."""
+    #     return self.get_socket_option(SO_RCVTIMEO)
 
-    fn set_timeout(self, duration: Seconds) raises:
-        """Set the timeout value for the socket.
+    # fn set_timeout(self, owned duration: Seconds) raises:
+    #     """Set the timeout value for the socket.
 
-        Args:
-            duration: Seconds - The timeout duration in seconds.
-        """
-        self.set_sock_opt(SO_RCVTIMEO, duration)
+    #     Args:
+    #         duration: Seconds - The timeout duration in seconds.
+    #     """
+    #     self.set_socket_option(SO_RCVTIMEO, duration)
 
     fn send_file(self, file: FileHandle, offset: Int = 0) raises:
         var data = file.read_bytes()
@@ -548,8 +572,9 @@ struct SocketIO(io.Reader, io.Writer, io.Closer):
         self.socket.close()
 
 
-# TODO: Should return socket object
-fn create_connection(address: String, port: Int, *, timeout: Int = 3600):
+fn create_connection(
+    address: String, port: Int, *, timeout: Int = 3600
+) raises -> Socket:
     """Connect to a remote socket at address.
 
     Args:
@@ -557,10 +582,11 @@ fn create_connection(address: String, port: Int, *, timeout: Int = 3600):
         port: The port number to connect to.
         timeout: The timeout duration in seconds.
     """
-    ...
+    var socket = Socket()
+    socket.connect(address, port)
+    return socket
 
 
-## TODO: Implement
 fn create_server(
     address: String,
     port: Int,
@@ -568,7 +594,7 @@ fn create_server(
     family: Int = AF_INET,
     backlog: Int = 0,
     reuse_port: Bool = False,
-):
+) raises -> Socket:
     """Create a new server socket and bind it to the address and port.
 
     Args:
@@ -578,7 +604,11 @@ fn create_server(
         backlog: The maximum number of queued connections.
         reuse_port: Whether to allow the socket to be bound to an address that is already in use.
     """
-    ...
+    var socket = Socket()
+    if reuse_port:
+        socket.set_socket_option(SO_REUSEADDR, 1)
+    socket.bind(address, port)
+    return socket
 
 
 # TODO: Implement

@@ -1,3 +1,6 @@
+from .errors import panic
+
+
 alias Byte = Int8
 
 
@@ -60,7 +63,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
     fn __getitem__(self, index: Int) -> Int8:
         return self._vector[index]
 
-    fn __getitem__(self, limits: Slice) raises -> Self:
+    fn __getitem__(self, limits: Slice) -> Self:
         # TODO: Specifying no end to the span sets span end to this super large int for some reason.
         # Set it to len of the vector if that happens. Otherwise, if end is just too large in general, throw OOB error.
 
@@ -70,7 +73,7 @@ struct Bytes(Stringable, Sized, CollectionElement):
         if limits.end == 9223372036854775807:
             end = self.size()
         elif limits.end > self.size() + 1:
-            raise Error(
+            panic(
                 "builtins.Bytes.__getitem__: Index out of range for limits.end."
                 " Received: "
                 + str(limits.end)
@@ -85,11 +88,17 @@ struct Bytes(Stringable, Sized, CollectionElement):
         return new_bytes
 
     fn __setitem__(inout self, index: Int, value: Int8):
+        if index >= len(self._vector):
+            panic("Bytes.__setitem__: Tried setting index out of range. Vector length is " + str(len(self._vector)) + " but tried to set index " + str(index) + ".")
+        
         self._vector[index] = value
         if index >= self.write_position:
             self.write_position = index + 1
 
     fn __setitem__(inout self, index: Int, value: Self):
+        if index >= len(self._vector):
+            panic("Bytes.__setitem__: Tried setting index out of range. Vector length is " + str(len(self._vector)) + " but tried to set index " + str(index) + ".")
+        
         self._vector[index] = value[0]
         if index >= self.write_position:
             self.write_position = index + 1
