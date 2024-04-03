@@ -130,7 +130,7 @@ struct HTTPClient:
             var byte_stream = socket.receive()
             if len(byte_stream) == 0:
                 break
-            
+
             response_buffer += byte_stream
             bytes_read += len(byte_stream)
 

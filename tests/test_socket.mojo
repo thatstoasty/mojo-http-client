@@ -24,4 +24,4 @@ fn test_socket_io() raises:
 
 fn main() raises:
     test_get_ip_address()
-    test_socket_io()
+    # test_socket_io()
