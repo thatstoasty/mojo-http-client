@@ -1,5 +1,7 @@
 from memory.unsafe import bitcast
 from tensor import Tensor
+from sys.info import os_is_linux, os_is_macos
+from utils.variant import Variant
 from .c.types import (
     c_void,
     c_uint,
@@ -10,6 +12,7 @@ from .c.net import (
     sockaddr,
     sockaddr_in,
     addrinfo,
+    addrinfo_unix,
     socklen_t,
     socket,
     connect,
@@ -24,6 +27,7 @@ from .c.net import (
     ntohs,
     strlen,
     getaddrinfo,
+    getaddrinfo_unix,
     gai_strerror,
     c_charptr_to_string,
     bind,
@@ -50,45 +54,92 @@ import external.gojo.io
 alias Seconds = Int
 alias SocketClosedError = Error("Socket: Socket is already closed")
 
+alias AddrInfo = Variant[addrinfo, addrinfo_unix]
 
-fn get_addr_info(host: String) raises -> addrinfo:
-    var servinfo = Pointer[addrinfo]().alloc(1)
-    servinfo.store(addrinfo())
+fn get_addr_info(host: String) raises -> AddrInfo:
+    var status: Int32 = 0
+    if os_is_macos():
+        var servinfo = Pointer[addrinfo]().alloc(1)
+        servinfo.store(addrinfo())
+        var hints = addrinfo()
+        hints.ai_family = AF_INET
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_flags = AI_PASSIVE
 
-    var hints = addrinfo()
-    hints.ai_family = AF_INET
-    hints.ai_socktype = SOCK_STREAM
-    hints.ai_flags = AI_PASSIVE
+        var host_ptr = to_char_ptr(host)
 
-    var host_ptr = to_char_ptr(host)
-
-    var status = getaddrinfo(
-        host_ptr,
-        Pointer[UInt8](),
-        Pointer.address_of(hints),
-        Pointer.address_of(servinfo),
-    )
-    if status != 0:
-        print("getaddrinfo failed to execute with status:", status)
-        var msg_ptr = gai_strerror(c_int(status))
-        _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
-            to_char_ptr("gai_strerror: %s"), msg_ptr
+        var status = getaddrinfo(
+            host_ptr,
+            Pointer[UInt8](),
+            Pointer.address_of(hints),
+            Pointer.address_of(servinfo),
         )
-        var msg = c_charptr_to_string(msg_ptr)
-        print("getaddrinfo error message: ", msg)
+        if status != 0:
+            print("getaddrinfo failed to execute with status:", status)
+            var msg_ptr = gai_strerror(c_int(status))
+            _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
+                to_char_ptr("gai_strerror: %s"), msg_ptr
+            )
+            var msg = c_charptr_to_string(msg_ptr)
+            print("getaddrinfo error message: ", msg)
 
-    if not servinfo:
-        print("servinfo is null")
-        raise Error("Failed to get address info. Pointer to addrinfo is null.")
+        if not servinfo:
+            print("servinfo is null")
+            raise Error("Failed to get address info. Pointer to addrinfo is null.")
 
-    return servinfo.load()
+        return servinfo.load()
+    elif os_is_linux():
+        var servinfo = Pointer[addrinfo_unix]().alloc(1)
+        servinfo.store(addrinfo_unix())
+        var hints = addrinfo_unix()
+        hints.ai_family = AF_INET
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_flags = AI_PASSIVE
+
+        var host_ptr = to_char_ptr(host)
+
+        var status = getaddrinfo_unix(
+            host_ptr,
+            Pointer[UInt8](),
+            Pointer.address_of(hints),
+            Pointer.address_of(servinfo),
+        )
+        if status != 0:
+            print("getaddrinfo failed to execute with status:", status)
+            var msg_ptr = gai_strerror(c_int(status))
+            _ = external_call["printf", c_int, Pointer[c_char], Pointer[c_char]](
+                to_char_ptr("gai_strerror: %s"), msg_ptr
+            )
+            var msg = c_charptr_to_string(msg_ptr)
+            print("getaddrinfo error message: ", msg)
+
+        if not servinfo:
+            print("servinfo is null")
+            raise Error("Failed to get address info. Pointer to addrinfo is null.")
+
+        return servinfo.load()
+    else:
+        raise Error("Windows is not supported yet! Sorry!")
 
 
 fn get_ip_address(host: String) raises -> String:
     """Get the IP address of a host."""
     # Call getaddrinfo to get the IP address of the host.
-    var addrinfo = get_addr_info(host)
-    var ai_addr = addrinfo.ai_addr
+    var result = get_addr_info(host)
+    var ai_addr: Pointer[sockaddr]
+    var address_family: Int32 = 0
+    var address_length: UInt32 = 0
+    if result.isa[addrinfo]():
+        var addrinfo = result.get[addrinfo]()
+        ai_addr = addrinfo[].ai_addr
+        address_family = addrinfo[].ai_family
+        address_length = addrinfo[].ai_addrlen
+    else:
+        var addrinfo = result.get[addrinfo_unix]()
+        ai_addr = addrinfo[].ai_addr
+        address_family = addrinfo[].ai_family
+        address_length = addrinfo[].ai_addrlen
+
     if not ai_addr:
         print("ai_addr is null")
         raise Error(
@@ -100,7 +151,7 @@ fn get_ip_address(host: String) raises -> String:
     var addr_in = ai_addr.bitcast[sockaddr_in]().load()
 
     return convert_binary_ip_to_string(
-        addr_in.sin_addr.s_addr, addrinfo.ai_family, addrinfo.ai_addrlen
+        addr_in.sin_addr.s_addr, address_family, address_length
     ).strip()
 
 

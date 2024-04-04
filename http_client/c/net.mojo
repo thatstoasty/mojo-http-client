@@ -335,12 +335,34 @@ struct addrinfo:
     var ai_addrlen: socklen_t
     var ai_canonname: Pointer[c_char]
     var ai_addr: Pointer[sockaddr]
-    # FIXME(cristian): This should be Pointer[addrinfo]
     var ai_next: Pointer[addrinfo]
 
     fn __init__() -> Self:
         return Self(
             0, 0, 0, 0, 0, Pointer[c_char](), Pointer[sockaddr](), Pointer[addrinfo]()
+        )
+
+
+@value
+@register_passable("trivial")
+struct addrinfo_unix:
+    """Struct field ordering can vary based on platform.
+    For MacOS, I had to swap the order of ai_canonname and ai_addr.
+    https://stackoverflow.com/questions/53575101/calling-getaddrinfo-directly-from-python-ai-addr-is-null-pointer.
+    """
+
+    var ai_flags: c_int
+    var ai_family: c_int
+    var ai_socktype: c_int
+    var ai_protocol: c_int
+    var ai_addrlen: socklen_t
+    var ai_addr: Pointer[sockaddr]
+    var ai_canonname: Pointer[c_char]
+    var ai_next: Pointer[addrinfo]
+
+    fn __init__() -> Self:
+        return Self(
+            0, 0, 0, 0, 0, Pointer[sockaddr](), Pointer[c_char](), Pointer[addrinfo]()
         )
 
 
@@ -703,6 +725,26 @@ fn getaddrinfo(
         Pointer[c_char],
         Pointer[addrinfo],  # Args
         Pointer[Pointer[addrinfo]],  # Args
+    ](nodename, servname, hints, res)
+
+
+fn getaddrinfo_unix(
+    nodename: Pointer[c_char],
+    servname: Pointer[c_char],
+    hints: Pointer[addrinfo_unix],
+    res: Pointer[Pointer[addrinfo_unix]],
+) -> c_int:
+    """Libc POSIX `getaddrinfo` function
+    Reference: https://man7.org/linux/man-pages/man3/getaddrinfo.3p.html
+    Fn signature: int getaddrinfo(const char *restrict nodename, const char *restrict servname, const struct addrinfo *restrict hints, struct addrinfo **restrict res).
+    """
+    return external_call[
+        "getaddrinfo",
+        c_int,  # FnName, RetType
+        Pointer[c_char],
+        Pointer[c_char],
+        Pointer[addrinfo_unix],  # Args
+        Pointer[Pointer[addrinfo_unix]],  # Args
     ](nodename, servname, hints, res)
 
 
