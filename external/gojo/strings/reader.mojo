@@ -1,6 +1,6 @@
 import ..io
 from collections.optional import Optional
-from ..builtins import Bytes, Byte, copy, Result, panic, WrappedError
+from ..builtins import Byte, copy, Result, panic, WrappedError
 
 
 @value
@@ -42,12 +42,12 @@ struct Reader(
         """
         return Int64(len(self.string))
 
-    fn read(inout self, inout dest: Bytes) -> Result[Int]:
-        """Reads from the underlying string into the provided Bytes object.
+    fn read(inout self, inout dest: List[Byte]) -> Result[Int]:
+        """Reads from the underlying string into the provided List[Byte] object.
         Implements the [io.Reader] trait.
 
         Args:
-            dest: The destination Bytes object to read into.
+            dest: The destination List[Byte] object to read into.
 
         Returns:
             The number of bytes read into dest.
@@ -56,17 +56,17 @@ struct Reader(
             return Result(0, WrappedError(io.EOF))
 
         self.prev_rune = -1
-        var bytes_written = copy(dest, self.string[int(self.read_pos) :])
+        var bytes_written = copy(dest, self.string[int(self.read_pos) :].as_bytes())
         self.read_pos += Int64(bytes_written)
         return bytes_written
 
-    fn read_at(self, inout dest: Bytes, off: Int64) -> Result[Int]:
-        """Reads from the Reader into the dest Bytes starting at the offset off.
+    fn read_at(self, inout dest: List[Byte], off: Int64) -> Result[Int]:
+        """Reads from the Reader into the dest List[Byte] starting at the offset off.
         It returns the number of bytes read into dest and an error if any.
         Implements the [io.ReaderAt] trait.
 
         Args:
-            dest: The destination Bytes object to read into.
+            dest: The destination List[Byte] object to read into.
             off: The byte offset to start reading from.
 
         Returns:
@@ -80,7 +80,7 @@ struct Reader(
             return Result(0, WrappedError(io.EOF))
 
         var error: Optional[WrappedError] = None
-        var copied_elements_count = copy(dest, self.string[int(off) :])
+        var copied_elements_count = copy(dest, self.string[int(off) :].as_bytes())
         if copied_elements_count < len(dest):
             error = WrappedError(io.EOF)
 

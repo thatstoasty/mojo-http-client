@@ -47,7 +47,7 @@ from .c.net import (
     SO_RCVTIMEO,
 )
 from .c.file import close
-from external.gojo.builtins import Bytes, Result, WrappedError, copy
+from external.gojo.builtins import Byte, Result, WrappedError, copy
 import external.gojo.io
 
 
@@ -427,13 +427,14 @@ struct Socket:
             self.shutdown()
             return  # Ensure exit if connection fails
 
-    fn send(self, data: Bytes) raises -> Int:
+    fn send(self, data: List[Byte]) raises -> Int:
         """Send data to the socket. The socket must be connected to a remote socket.
 
         Args:
             data: The data to send.
         """
-        var header_pointer = Pointer[Int8](data._vector.data.value).bitcast[UInt8]()
+        print("sending", self.sockfd)
+        var header_pointer = Pointer[Int8](data.data.value).bitcast[UInt8]()
 
         var bytes_sent = send(self.sockfd, header_pointer, strlen(header_pointer), 0)
         if bytes_sent == -1:
@@ -441,14 +442,14 @@ struct Socket:
 
         return bytes_sent
 
-    fn send_all(self, data: Bytes, max_attempts: Int = 3) raises:
+    fn send_all(self, data: List[Byte], max_attempts: Int = 3) raises:
         """Send data to the socket. The socket must be connected to a remote socket.
 
         Args:
             data: The data to send.
             max_attempts: The maximum number of attempts to send the data.
         """
-        var header_pointer = Pointer[Int8](data._vector.data.value).bitcast[UInt8]()
+        var header_pointer = Pointer[Int8](data.data.value).bitcast[UInt8]()
         var total_bytes_sent = 0
         var attempts = 0
 
@@ -476,7 +477,7 @@ struct Socket:
             total_bytes_sent += bytes_sent
             attempts += 1
 
-    fn send_to(self, data: Bytes, address: String, port: Int) raises -> Int:
+    fn send_to(self, data: List[Byte], address: String, port: Int) raises -> Int:
         """Send data to the a remote address by connecting to the remote socket before sending.
         The socket must be not already be connected to a remote socket.
 
@@ -485,15 +486,15 @@ struct Socket:
             address: The IP address to connect to.
             port: The port number to connect to.
         """
-        var header_pointer = Pointer[Int8](data._vector.data.value).bitcast[UInt8]()
+        var header_pointer = Pointer[Int8](data.data.value).bitcast[UInt8]()
         self.connect(address, port)
         return self.send(data)
 
-    fn receive(self, bytes_to_receive: Int = 4096) raises -> Bytes:
+    fn receive(self, bytes_to_receive: Int = 4096) raises -> List[Byte]:
         """Receive data from the socket."""
-        # Not ideal since we can't use the pointer from the Bytes struct directly. So we use a temporary pointer to receive the data.
+        # Not ideal since we can't use the pointer from the List[Byte] struct directly. So we use a temporary pointer to receive the data.
         # Then we copy all the data over.
-        var buf = Bytes(bytes_to_receive)
+        var buf = List[Byte](bytes_to_receive)
         var ptr = Pointer[UInt8]().alloc(bytes_to_receive)
         var bytes_recieved = recv(self.sockfd, ptr, bytes_to_receive, 0)
         if bytes_recieved == -1:
@@ -505,7 +506,7 @@ struct Socket:
 
         return buf
 
-    fn receive_into(self, inout buf: Bytes, bytes_to_receive: Int = 4096) raises -> Int:
+    fn receive_into(self, inout buf: List[Byte], bytes_to_receive: Int = 4096) raises -> Int:
         """Receive data from the socket and write it to the buffer provided."""
         var ptr = Pointer[UInt8]().alloc(bytes_to_receive)
         var bytes_recieved = recv(self.sockfd, ptr, bytes_to_receive, 0)
@@ -547,7 +548,7 @@ struct Socket:
     #     self.set_socket_option(SO_RCVTIMEO, duration)
 
     fn send_file(self, file: FileHandle, offset: Int = 0) raises:
-        var bytes = Bytes(file.read_bytes())
+        var bytes = List[Byte](file.read_bytes())
 
         self.send_all(bytes)
 
@@ -592,7 +593,7 @@ struct SocketIO(io.Reader, io.Writer, io.Closer):
     fn is_writable(self) -> Bool:
         return self._writing
 
-    fn read(inout self, inout dest: Bytes) -> Result[Int]:
+    fn read(inout self, inout dest: List[Byte]) -> Result[Int]:
         var bytes_received: Int
         try:
             bytes_received = self.socket.receive_into(dest)
@@ -601,10 +602,15 @@ struct SocketIO(io.Reader, io.Writer, io.Closer):
 
         return Result(bytes_received, None)
 
-    fn write(inout self, src: Bytes) -> Result[Int]:
-        var bytes_written: Int
+    fn write(inout self, src: List[Byte]) -> Result[Int]:
+        # Copying for now, to add null terminator for the write. I think send expects a null terminated string.
+        var copy = List[Byte](src)
+        if copy[-1] != 0:
+            copy.append(0)
+
+        var bytes_written: Int = 0
         try:
-            bytes_written = self.socket.send(src)
+            bytes_written = self.socket.send(copy)
         except e:
             return Result(0, WrappedError(e))
 

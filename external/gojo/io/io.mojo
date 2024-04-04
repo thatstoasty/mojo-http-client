@@ -1,5 +1,5 @@
 from collections.optional import Optional
-from ..builtins import cap, copy, Bytes, Byte, Result, WrappedError, panic
+from ..builtins import cap, copy, Byte, Result, WrappedError, panic
 from .traits import ERR_UNEXPECTED_EOF
 
 
@@ -37,7 +37,7 @@ fn write_string[W: StringWriter](inout writer: W, string: String) -> Result[Int]
 
 fn read_at_least[
     R: Reader
-](inout reader: R, inout dest: Bytes, min: Int) -> Result[Int]:
+](inout reader: R, inout dest: List[Byte], min: Int) -> Result[Int]:
     """Reads from r into buf until it has read at least min bytes.
     It returns the number of bytes copied and an error if fewer bytes were read.
     The error is EOF only if no bytes were read.
@@ -73,7 +73,7 @@ fn read_at_least[
     return Result(total_bytes_read, None)
 
 
-fn read_full[R: Reader](inout reader: R, inout dest: Bytes) -> Result[Int]:
+fn read_full[R: Reader](inout reader: R, inout dest: List[Byte]) -> Result[Int]:
     """Reads exactly len(buf) bytes from r into buf.
     It returns the number of bytes copied and an error if fewer bytes were read.
     The error is EOF only if no bytes were read.
@@ -135,7 +135,7 @@ fn read_full[R: Reader](inout reader: R, inout dest: Bytes) -> Result[Int]:
 # }
 
 
-# fn copy_buffer[W: Writer, R: Reader](dst: W, src: R, buf: Bytes) raises -> Int64:
+# fn copy_buffer[W: Writer, R: Reader](dst: W, src: R, buf: List[Byte]) raises -> Int64:
 #     """Actual implementation of copy and CopyBuffer.
 #     if buf is nil, one is allocated.
 #     """
@@ -155,11 +155,11 @@ fn read_full[R: Reader](inout reader: R, inout dest: Bytes) -> Result[Int]:
 #     return written
 
 
-# fn copy_buffer[W: Writer, R: ReaderWriteTo](dst: W, src: R, buf: Bytes) -> Int64:
+# fn copy_buffer[W: Writer, R: ReaderWriteTo](dst: W, src: R, buf: List[Byte]) -> Int64:
 #     return src.write_to(dst)
 
 
-# fn copy_buffer[W: WriterReadFrom, R: Reader](dst: W, src: R, buf: Bytes) -> Int64:
+# fn copy_buffer[W: WriterReadFrom, R: Reader](dst: W, src: R, buf: List[Byte]) -> Int64:
 #     return dst.read_from(src)
 
 # # LimitReader returns a Reader that reads from r
@@ -246,7 +246,7 @@ fn read_full[R: Reader](inout reader: R, inout dest: Bytes) -> Result[Int]:
 # }
 
 # fn (s *SectionReader) ReadAt(p bytes, off int64) (n Int, err error) {
-# 	if off < 0 or off >= s.Size() {
+# 	if off < 0 or off >= s.capacity {
 # 		return 0, EOF
 # 	}
 # 	off += s.base
@@ -409,7 +409,7 @@ fn read_full[R: Reader](inout reader: R, inout dest: Bytes) -> Result[Int]:
 # }
 
 
-fn read_all[R: Reader](inout reader: R) -> Result[Bytes]:
+fn read_all[R: Reader](inout reader: R) -> Result[List[Byte]]:
     """Reads from r until an error or EOF and returns the data it read.
     A successful call returns err == nil, not err == EOF. Because ReadAll is
     defined to read from src until EOF, it does not treat an EOF from Read
@@ -420,12 +420,12 @@ fn read_all[R: Reader](inout reader: R) -> Result[Bytes]:
 
     Returns:
         The data read."""
-    var dest = Bytes(BUFFER_SIZE)
+    var dest = List[Byte](capacity=BUFFER_SIZE)
     var index: Int = 0
     var at_eof: Bool = False
 
     while True:
-        var temp = Bytes(BUFFER_SIZE)
+        var temp = List[Byte](capacity=BUFFER_SIZE)
         var result = reader.read(temp)
         var bytes_read = result.value
         var err = result.get_error()
@@ -437,9 +437,9 @@ fn read_all[R: Reader](inout reader: R) -> Result[Bytes]:
 
         # If new bytes will overflow the result, resize it.
         # if some bytes were written, how do I append before returning result on the last one?
-        if len(dest) + len(temp) > dest.size():
-            dest.resize(dest.size() * 2)
-        dest += temp
+        if len(dest) + len(temp) > dest.capacity:
+            dest.reserve(dest.capacity * 2)
+        dest.extend(temp)
 
         if at_eof:
             return Result(dest, err.value())

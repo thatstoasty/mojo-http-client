@@ -1,5 +1,5 @@
 from collections.optional import Optional
-from ..builtins import Bytes, Byte, Result, WrappedError
+from ..builtins import Byte, Result, WrappedError
 
 alias Rune = Int32
 
@@ -78,7 +78,7 @@ trait Reader(Movable):
 
     Implementations must not retain p."""
 
-    fn read(inout self, inout dest: Bytes) -> Result[Int]:
+    fn read(inout self, inout dest: List[Byte]) -> Result[Int]:
         ...
 
 
@@ -94,7 +94,7 @@ trait Writer(Movable):
     Implementations must not retain p.
     """
 
-    fn write(inout self, src: Bytes) -> Result[Int]:
+    fn write(inout self, src: List[Byte]) -> Result[Int]:
         ...
 
 
@@ -106,7 +106,7 @@ trait Closer(Movable):
     Specific implementations may document their own behavior.
     """
 
-    fn close(inout self) raises:
+    fn close(inout self) -> Optional[WrappedError]:
         ...
 
 
@@ -227,7 +227,7 @@ trait ReaderAt:
 
     Implementations must not retain p."""
 
-    fn read_at(self, inout dest: Bytes, off: Int64) -> Result[Int]:
+    fn read_at(self, inout dest: List[Byte], off: Int64) -> Result[Int]:
         ...
 
 
@@ -248,7 +248,7 @@ trait WriterAt:
 
     Implementations must not retain p."""
 
-    fn write_at(self, src: Bytes, off: Int64) -> Result[Int]:
+    fn write_at(self, src: List[Byte], off: Int64) -> Result[Int]:
         ...
 
 

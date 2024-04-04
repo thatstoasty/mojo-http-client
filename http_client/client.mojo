@@ -1,8 +1,11 @@
 from collections.optional import Optional
 from collections.dict import Dict, KeyElement
-from external.gojo.builtins import Bytes
+import external.gojo.io
+from external.gojo.builtins import Byte
 from external.gojo.strings import StringBuilder
-from .socket import Socket, get_ip_address
+from external.gojo.net.socket import Socket
+from external.gojo.net.ip import get_ip_address
+# from .socket import Socket, get_ip_address
 from .response import Response
 
 
@@ -109,7 +112,7 @@ struct HTTPClient:
 
         # TODO: The message_len will break with unicode characters as they vary from 1-4 bytes.
         var message_len = len(message)
-        var bytes_to_send = Bytes(message)
+        var bytes_to_send = message.as_bytes()
         var bytes_sent = socket.send_to(
             bytes_to_send, get_ip_address(self.host), self.port
         )
@@ -122,22 +125,26 @@ struct HTTPClient:
             )
 
         # Response buffer to store all the data from the socket. TODO: Might need more than 4096 bytes, but how do I make the size dynamic?
-        var response_buffer = Bytes(4096)
+        var response_buffer = List[Byte](capacity=4096)
 
         # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
         var bytes_read = 0
         while True:
-            var byte_stream = socket.receive()
-            if len(byte_stream) == 0:
+            var result = socket.read(response_buffer)
+            if result.error:
+                if str(result.unwrap_error()) != io.EOF:
+                    raise result.unwrap_error().error
+
+            if result.value == 0:
                 break
 
-            response_buffer += byte_stream
-            bytes_read += len(byte_stream)
+            bytes_read += result.value
 
-        # Using a StringRef to avoid pointer double free shenanigans.
         var response = Response(response_buffer)
         socket.shutdown()
-        socket.close()
+        var err = socket.close()
+        if err:
+            raise err.value().error
         return response
 
     fn get(
