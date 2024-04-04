@@ -5,7 +5,6 @@ from external.gojo.builtins import Byte
 from external.gojo.strings import StringBuilder
 from external.gojo.net.socket import Socket
 from external.gojo.net.ip import get_ip_address
-# from .socket import Socket, get_ip_address
 from .response import Response
 
 
