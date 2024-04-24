@@ -30,6 +30,7 @@ struct TCPAddr(Addr):
         port: Port number.
         zone: IPv6 addressing zone.
     """
+
     var ip: String
     var port: Int
     var zone: String  # IPv6 addressing zone
@@ -70,11 +71,7 @@ fn resolve_internet_addr(network: String, address: String) raises -> TCPAddr:
             host = host_port.host
             port = host_port.port
             portnum = atol(port.__str__())
-    elif (
-        network == NetworkType.ip.value
-        or network == NetworkType.ip4.value
-        or network == NetworkType.ip6.value
-    ):
+    elif network == NetworkType.ip.value or network == NetworkType.ip4.value or network == NetworkType.ip6.value:
         if address != "":
             host = address
     elif network == NetworkType.unix.value:
@@ -82,12 +79,6 @@ fn resolve_internet_addr(network: String, address: String) raises -> TCPAddr:
     else:
         raise Error("unsupported network type: " + network)
     return TCPAddr(host, portnum)
-
-
-fn join_host_port(host: String, port: String) -> String:
-    if host.find(":") != -1:  # must be IPv6 literal
-        return "[" + host + "]:" + port
-    return host + ":" + port
 
 
 alias missingPortError = Error("missing port in address")
@@ -104,6 +95,12 @@ struct HostPort(Stringable):
 
     fn __str__(self) -> String:
         return join_host_port(self.host, str(self.port))
+
+
+fn join_host_port(host: String, port: String) -> String:
+    if host.find(":") != -1:  # must be IPv6 literal
+        return "[" + host + "]:" + port
+    return host + ":" + port
 
 
 fn split_host_port(hostport: String) raises -> HostPort:

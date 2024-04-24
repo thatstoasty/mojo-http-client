@@ -1,29 +1,18 @@
-from collections.optional import Optional
 from memory._arc import Arc
 import ..io
-from ..builtins import Byte, Result, WrappedError
+from ..builtins import Byte
 from .socket import Socket
 from .address import Addr, TCPAddr
 
-
-# Time in nanoseconds
-alias Duration = Int
 alias DEFAULT_BUFFER_SIZE = 4096
-alias DEFAULT_TCP_KEEP_ALIVE = Duration(15 * 1000 * 1000 * 1000)  # 15 seconds
-
-
-trait Listener(Movable):
-    fn accept(borrowed self) raises -> Connection:
-        ...
-
-    fn close(self) -> Optional[WrappedError]:
-        ...
-
-    fn addr(self) -> Addr:
-        ...
 
 
 trait Conn(io.Writer, io.Reader, io.Closer):
+    fn __init__(inout self, owned socket: Socket):
+        ...
+
+    """Conn is a generic stream-oriented network connection."""
+
     fn local_address(self) -> TCPAddr:
         """Returns the local network address, if known."""
         ...
@@ -73,36 +62,69 @@ trait Conn(io.Writer, io.Reader, io.Closer):
 
 @value
 struct Connection(Conn):
+    """Connection is a concrete generic stream-oriented network connection.
+    It is used as the internal connection for structs like TCPConnection.
+
+    Args:
+        fd: The file descriptor of the connection.
+    """
+
     var fd: Arc[Socket]
 
-    fn read(inout self, inout dest: List[Byte]) -> Result[Int]:
-        var result = self.fd[].read(dest)
-        if result.error:
-            if str(result.unwrap_error()) != io.EOF:
-                return Result[Int](0, result.unwrap_error())
+    fn __init__(inout self, owned socket: Socket):
+        self.fd = Arc(socket^)
 
-        return result.value
+    fn read(inout self, inout dest: List[Byte]) -> (Int, Error):
+        """Reads data from the underlying file descriptor.
 
-    fn write(inout self, src: List[Byte]) -> Result[Int]:
-        var result = self.fd[].write(src)
-        if result.error:
-            return Result[Int](0, result.unwrap_error())
+        Args:
+            dest: The buffer to read data into.
 
-        return result.value
-
-    fn close(inout self) -> Optional[WrappedError]:
-        var err = self.fd[].close()
+        Returns:
+            The number of bytes read, or an error if one occurred.
+        """
+        var bytes_written: Int = 0
+        var err = Error()
+        bytes_written, err = self.fd[].read(dest)
         if err:
-            return err.value()
+            if str(err) != io.EOF:
+                return 0, err
 
-        return None
+        return bytes_written, err
+
+    fn write(inout self, src: List[Byte]) -> (Int, Error):
+        """Writes data to the underlying file descriptor.
+
+        Args:
+            src: The buffer to read data into.
+
+        Returns:
+            The number of bytes written, or an error if one occurred.
+        """
+        var bytes_read: Int = 0
+        var err = Error()
+        bytes_read, err = self.fd[].write(src)
+        if err:
+            return 0, err
+
+        return bytes_read, err
+
+    fn close(inout self) -> Error:
+        """Closes the underlying file descriptor.
+
+        Returns:
+            An error if one occurred, or None if the file descriptor was closed successfully.
+        """
+        return self.fd[].close()
 
     fn local_address(self) -> TCPAddr:
         """Returns the local network address.
-        The Addr returned is shared by all invocations of local_address, so do not modify it."""
+        The Addr returned is shared by all invocations of local_address, so do not modify it.
+        """
         return self.fd[].local_address
 
     fn remote_address(self) -> TCPAddr:
         """Returns the remote network address.
-        The Addr returned is shared by all invocations of remote_address, so do not modify it."""
+        The Addr returned is shared by all invocations of remote_address, so do not modify it.
+        """
         return self.fd[].remote_address

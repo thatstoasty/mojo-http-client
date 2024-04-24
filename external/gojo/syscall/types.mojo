@@ -21,11 +21,11 @@ struct Str:
     fn to_string(self, size: Int) -> String:
         var result: String = ""
         for i in range(size):
-            result += chr(self.vector[i].to_int())
+            result += chr(int(self.vector[i]))
         return result
 
     fn __enter__(owned self: Self) -> Self:
-        return self ^
+        return self^
 
 
 fn strlen(s: Pointer[c_char]) -> c_size_t:

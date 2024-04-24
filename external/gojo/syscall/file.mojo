@@ -34,14 +34,10 @@ fn open[*T: AnyType](path: Pointer[c_char], oflag: c_int, *args: *T) -> c_int:
     Returns:
         A File Descriptor or -1 in case of failure
     """
-    return external_call[
-        "open", c_int, Pointer[c_char], c_int  # FnName, RetType  # Args
-    ](path, oflag, args)
+    return external_call["open", c_int, Pointer[c_char], c_int](path, oflag, args)  # FnName, RetType  # Args
 
 
-fn openat[
-    *T: AnyType
-](fd: c_int, path: Pointer[c_char], oflag: c_int, *args: *T) -> c_int:
+fn openat[*T: AnyType](fd: c_int, path: Pointer[c_char], oflag: c_int, *args: *T) -> c_int:
     """Libc POSIX `open` function
     Reference: https://man7.org/linux/man-pages/man3/open.3p.html
     Fn signature: int openat(int fd, const char *path, int oflag, ...).
@@ -54,9 +50,9 @@ fn openat[
     Returns:
         A File Descriptor or -1 in case of failure
     """
-    return external_call[
-        "openat", c_int, c_int, Pointer[c_char], c_int  # FnName, RetType  # Args
-    ](fd, path, oflag, args)
+    return external_call["openat", c_int, c_int, Pointer[c_char], c_int](  # FnName, RetType  # Args
+        fd, path, oflag, args
+    )
 
 
 fn printf[*T: AnyType](format: Pointer[c_char], *args: *T) -> c_int:
@@ -75,9 +71,7 @@ fn printf[*T: AnyType](format: Pointer[c_char], *args: *T) -> c_int:
     ](format, args)
 
 
-fn sprintf[
-    *T: AnyType
-](s: Pointer[c_char], format: Pointer[c_char], *args: *T) -> c_int:
+fn sprintf[*T: AnyType](s: Pointer[c_char], format: Pointer[c_char], *args: *T) -> c_int:
     """Libc POSIX `sprintf` function
     Reference: https://man7.org/linux/man-pages/man3/fprintf.3p.html
     Fn signature: int sprintf(char *restrict s, const char *restrict format, ...).
@@ -87,9 +81,7 @@ fn sprintf[
         args: The optional arguments.
     Returns: The number of bytes written or -1 in case of failure.
     """
-    return external_call[
-        "sprintf", c_int, Pointer[c_char], Pointer[c_char]  # FnName, RetType  # Args
-    ](s, format, args)
+    return external_call["sprintf", c_int, Pointer[c_char], Pointer[c_char]](s, format, args)  # FnName, RetType  # Args
 
 
 fn read(fildes: c_int, buf: Pointer[c_void], nbyte: c_size_t) -> c_int:
@@ -102,9 +94,7 @@ fn read(fildes: c_int, buf: Pointer[c_void], nbyte: c_size_t) -> c_int:
         nbyte: The number of bytes to read.
     Returns: The number of bytes read or -1 in case of failure.
     """
-    return external_call["read", c_ssize_t, c_int, Pointer[c_void], c_size_t](
-        fildes, buf, nbyte
-    )
+    return external_call["read", c_ssize_t, c_int, Pointer[c_void], c_size_t](fildes, buf, nbyte)
 
 
 fn write(fildes: c_int, buf: Pointer[c_void], nbyte: c_size_t) -> c_int:
@@ -117,6 +107,4 @@ fn write(fildes: c_int, buf: Pointer[c_void], nbyte: c_size_t) -> c_int:
         nbyte: The number of bytes to write.
     Returns: The number of bytes written or -1 in case of failure.
     """
-    return external_call["write", c_ssize_t, c_int, Pointer[c_void], c_size_t](
-        fildes, buf, nbyte
-    )
+    return external_call["write", c_ssize_t, c_int, Pointer[c_void], c_size_t](fildes, buf, nbyte)

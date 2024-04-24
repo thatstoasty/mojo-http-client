@@ -22,10 +22,11 @@ from ..syscall.net import (
     getaddrinfo_unix,
     gai_strerror,
     to_char_ptr,
-    c_charptr_to_string
+    c_charptr_to_string,
 )
 
 alias AddrInfo = Variant[addrinfo, addrinfo_unix]
+
 
 fn get_addr_info(host: String) raises -> AddrInfo:
     var status: Int32 = 0
@@ -113,17 +114,12 @@ fn get_ip_address(host: String) raises -> String:
 
     if not ai_addr:
         print("ai_addr is null")
-        raise Error(
-            "Failed to get IP address. getaddrinfo was called successfully, but ai_addr"
-            " is null."
-        )
+        raise Error("Failed to get IP address. getaddrinfo was called successfully, but ai_addr is null.")
 
     # Cast sockaddr struct to sockaddr_in struct and convert the binary IP to a string using inet_ntop.
     var addr_in = ai_addr.bitcast[sockaddr_in]().load()
 
-    return convert_binary_ip_to_string(
-        addr_in.sin_addr.s_addr, address_family, address_length
-    ).strip()
+    return convert_binary_ip_to_string(addr_in.sin_addr.s_addr, address_family, address_length).strip()
 
 
 fn convert_port_to_binary(port: Int) -> UInt16:
@@ -143,9 +139,7 @@ fn convert_ip_to_binary(ip_address: String, address_family: Int) -> UInt32:
     return ip_buffer.bitcast[c_uint]().load()
 
 
-fn convert_binary_ip_to_string(
-    owned ip_address: UInt32, address_family: Int32, address_length: UInt32
-) -> String:
+fn convert_binary_ip_to_string(owned ip_address: UInt32, address_family: Int32, address_length: UInt32) -> String:
     """Convert a binary IP address to a string by calling inet_ntop.
 
     Args:
@@ -172,9 +166,7 @@ fn convert_binary_ip_to_string(
     return StringRef(string_buf, index)
 
 
-fn build_sockaddr_pointer(
-    ip_address: String, port: Int, address_family: Int
-) -> Pointer[sockaddr]:
+fn build_sockaddr_pointer(ip_address: String, port: Int, address_family: Int) -> Pointer[sockaddr]:
     """Build a sockaddr pointer from an IP address and port number.
     https://learn.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
     https://learn.microsoft.com/en-us/windows/win32/api/ws2def/ns-ws2def-sockaddr_in.
