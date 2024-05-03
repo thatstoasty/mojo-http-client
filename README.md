@@ -2,8 +2,6 @@
 
 A barebones HTTP/1.1 client for Mojo using only Mojo and external C calls.
 
-NOTE: This does not work on Mojo 24.2, you must use the nightly build for now. This will be resolved in the next Mojo release.
-
 Thanks to the following for a large chunk of the code for working with sockets via external calls to C!
 
 - https://github.com/saviorand/lightbug_http/tree/main
