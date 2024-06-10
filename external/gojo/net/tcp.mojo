@@ -1,5 +1,5 @@
 from ..builtins import Byte
-from ..syscall.net import SO_REUSEADDR
+from ..syscall import SocketOptions
 from .net import Connection, Conn
 from .address import TCPAddr, NetworkType, split_host_port
 from .socket import Socket
@@ -26,7 +26,7 @@ fn resolve_internet_addr(network: String, address: String) raises -> TCPAddr:
         if address != "":
             var host_port = split_host_port(address)
             host = host_port.host
-            port = host_port.port
+            port = str(host_port.port)
             portnum = atol(port.__str__())
     elif network == NetworkType.ip.value or network == NetworkType.ip4.value or network == NetworkType.ip6.value:
         if address != "":
@@ -48,9 +48,9 @@ struct ListenConfig(CollectionElement):
         var tcp_addr = resolve_internet_addr(network, address)
         var socket = Socket(local_address=tcp_addr)
         socket.bind(tcp_addr.ip, tcp_addr.port)
-        socket.set_socket_option(SO_REUSEADDR, 1)
+        socket.set_socket_option(SocketOptions.SO_REUSEADDR, 1)
         socket.listen()
-        print(String("Listening on ") + socket.local_address)
+        print(str("Listening on ") + str(socket.local_address))
         return TCPListener(socket^, self, network, address)
 
 
@@ -66,7 +66,6 @@ trait Listener(Movable):
         ...
 
 
-@value
 struct TCPConnection(Conn):
     """TCPConn is an implementation of the Conn interface for TCP network connections.
 
@@ -76,8 +75,8 @@ struct TCPConnection(Conn):
 
     var _connection: Connection
 
-    fn __init__(inout self, connection: Connection):
-        self._connection = connection
+    fn __init__(inout self, owned connection: Connection):
+        self._connection = connection^
 
     fn __init__(inout self, owned socket: Socket):
         self._connection = Connection(socket^)
@@ -94,14 +93,14 @@ struct TCPConnection(Conn):
         Returns:
             The number of bytes read, or an error if one occurred.
         """
-        var bytes_written: Int
+        var bytes_read: Int
         var err: Error
-        bytes_written, err = self._connection.read(dest)
+        bytes_read, err = self._connection.read(dest)
         if err:
             if str(err) != io.EOF:
-                return 0, err
+                return bytes_read, err
 
-        return bytes_written, Error()
+        return bytes_read, Error()
 
     fn write(inout self, src: List[Byte]) -> (Int, Error):
         """Writes data to the underlying file descriptor.
@@ -112,13 +111,7 @@ struct TCPConnection(Conn):
         Returns:
             The number of bytes written, or an error if one occurred.
         """
-        var bytes_written: Int
-        var err: Error
-        bytes_written, err = self._connection.write(src)
-        if err:
-            return 0, err
-
-        return bytes_written, Error()
+        return self._connection.write(src)
 
     fn close(inout self) -> Error:
         """Closes the underlying file descriptor.
@@ -188,8 +181,8 @@ struct TCPListener(Listener):
     fn __moveinit__(inout self, owned existing: Self):
         self._file_descriptor = existing._file_descriptor^
         self.listen_config = existing.listen_config^
-        self.network_type = existing.network_type
-        self.address = existing.address
+        self.network_type = existing.network_type^
+        self.address = existing.address^
 
     fn listen(self) raises -> Self:
         return self.listen_config.listen(self.network_type, self.address)

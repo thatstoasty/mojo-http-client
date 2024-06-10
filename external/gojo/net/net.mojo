@@ -1,4 +1,4 @@
-from memory._arc import Arc
+from memory.arc import Arc
 import ..io
 from ..builtins import Byte
 from .socket import Socket
@@ -60,7 +60,6 @@ trait Conn(io.Writer, io.Reader, io.Closer):
     #     ...
 
 
-@value
 struct Connection(Conn):
     """Connection is a concrete generic stream-oriented network connection.
     It is used as the internal connection for structs like TCPConnection.
@@ -69,10 +68,13 @@ struct Connection(Conn):
         fd: The file descriptor of the connection.
     """
 
-    var fd: Arc[Socket]
+    var fd: Socket
 
     fn __init__(inout self, owned socket: Socket):
-        self.fd = Arc(socket^)
+        self.fd = socket^
+
+    fn __moveinit__(inout self, owned existing: Self):
+        self.fd = existing.fd^
 
     fn read(inout self, inout dest: List[Byte]) -> (Int, Error):
         """Reads data from the underlying file descriptor.
@@ -83,14 +85,7 @@ struct Connection(Conn):
         Returns:
             The number of bytes read, or an error if one occurred.
         """
-        var bytes_written: Int = 0
-        var err = Error()
-        bytes_written, err = self.fd[].read(dest)
-        if err:
-            if str(err) != io.EOF:
-                return 0, err
-
-        return bytes_written, err
+        return self.fd.read(dest)
 
     fn write(inout self, src: List[Byte]) -> (Int, Error):
         """Writes data to the underlying file descriptor.
@@ -101,13 +96,7 @@ struct Connection(Conn):
         Returns:
             The number of bytes written, or an error if one occurred.
         """
-        var bytes_read: Int = 0
-        var err = Error()
-        bytes_read, err = self.fd[].write(src)
-        if err:
-            return 0, err
-
-        return bytes_read, err
+        return self.fd.write(src)
 
     fn close(inout self) -> Error:
         """Closes the underlying file descriptor.
@@ -115,16 +104,16 @@ struct Connection(Conn):
         Returns:
             An error if one occurred, or None if the file descriptor was closed successfully.
         """
-        return self.fd[].close()
+        return self.fd.close()
 
     fn local_address(self) -> TCPAddr:
         """Returns the local network address.
         The Addr returned is shared by all invocations of local_address, so do not modify it.
         """
-        return self.fd[].local_address
+        return self.fd.local_address
 
     fn remote_address(self) -> TCPAddr:
         """Returns the remote network address.
         The Addr returned is shared by all invocations of remote_address, so do not modify it.
         """
-        return self.fd[].remote_address
+        return self.fd.remote_address

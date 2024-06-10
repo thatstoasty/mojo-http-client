@@ -1,19 +1,14 @@
-from collections.optional import Optional
 import ..io
 from ..builtins import Byte
-from ..syscall.file import close
-from ..syscall.types import c_char
-from ..syscall.net import (
+from ..syscall import (
     recv,
     send,
+    close,
     strlen,
+    FileDescriptorBase,
 )
 
 alias O_RDWR = 0o2
-
-
-trait FileDescriptorBase(io.Reader, io.Writer, io.Closer):
-    ...
 
 
 struct FileDescriptor(FileDescriptorBase):
@@ -49,17 +44,17 @@ struct FileDescriptor(FileDescriptorBase):
         var new_fd = external_call["dup", Int, Int](self.fd)
         return Self(new_fd)
 
-    # TODO: Need faster approach to copying data from the file descriptor to the buffer.
     fn read(inout self, inout dest: List[Byte]) -> (Int, Error):
         """Receive data from the file descriptor and write it to the buffer provided."""
-        var ptr = Pointer[UInt8]().alloc(dest.capacity)
-        var bytes_received = recv(self.fd, ptr, dest.capacity, 0)
+        var bytes_received = recv(
+            self.fd,
+            DTypePointer[DType.uint8](dest.unsafe_ptr()).offset(dest.size),
+            dest.capacity,
+            0,
+        )
         if bytes_received == -1:
             return 0, Error("Failed to receive message from socket.")
-
-        var int8_ptr = ptr.bitcast[Int8]()
-        for i in range(bytes_received):
-            dest.append(int8_ptr[i])
+        dest.size += bytes_received
 
         if bytes_received < dest.capacity:
             return bytes_received, Error(io.EOF)
@@ -68,9 +63,7 @@ struct FileDescriptor(FileDescriptorBase):
 
     fn write(inout self, src: List[Byte]) -> (Int, Error):
         """Write data from the buffer to the file descriptor."""
-        var header_pointer = Pointer[Int8](src.data.address).bitcast[UInt8]()
-
-        var bytes_sent = send(self.fd, header_pointer, strlen(header_pointer), 0)
+        var bytes_sent = send(self.fd, src.unsafe_ptr(), strlen(src.unsafe_ptr()), 0)
         if bytes_sent == -1:
             return 0, Error("Failed to send message")
 
