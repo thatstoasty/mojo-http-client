@@ -1,8 +1,6 @@
 from tests.wrapper import MojoTest
 from http_client.client import HTTPClient, Headers
 
-# from http_client.uri import QueryParams, URI
-
 
 fn test_post() raises:
     var test = MojoTest("Testing client.post")
@@ -17,10 +15,8 @@ fn test_post() raises:
 
     var response = HTTPClient().post("www.httpbin.org", "/post", headers=headers, data=data)
     test.assert_equal(response.status_code, 200)
-    # TODO: Printing response.status_message shows the correct message, but it shows up as None in the assert??
-    # Seems like something is generally wrong with setting attributes of the Response object
-    # testing.assert_equal(response.status_message, "OK")
-    # testing.assert_equal(response.headers["Content-Type"], "application/json")
+    test.assert_equal(response.status_message, "OK")
+    test.assert_equal(response.headers["Content-Type"], "application/json")
     test.assert_equal(response.scheme, "http")
 
 
@@ -30,8 +26,7 @@ fn test_get() raises:
     var response = HTTPClient().get("www.example.com", "/", 80)
     print(response)
     test.assert_equal(response.status_code, 200)
-    # TODO: Printing response.status_message shows the correct message, but it shows up as None in the assert??
-    # testing.assert_equal(response.status_message, "OK")
+    test.assert_equal(response.status_message, "OK")
     test.assert_equal(response.scheme, "http")
 
 

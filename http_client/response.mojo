@@ -65,14 +65,13 @@ struct Response(Stringable):
         self.scheme = scheme_and_proto[0].lower()
         self.protocol = status_line[0]
         self.status_code = atol(status_line[1])
-        self.status_message = status_line[2]
+        self.status_message = status_line[2][:-1]
 
         self.headers = Headers()
         for i in range(1, len(lines), 1):
-            var line = lines[i]
-            var parts = line.split(": ")
+            var parts = lines[i].split(": ")
             if len(parts) == 2:
-                self.headers[parts[0]] = parts[1]
+                self.headers[parts[0]] = parts[1][:-1]
 
         self.body = ""
         if len(chunks) > 1:

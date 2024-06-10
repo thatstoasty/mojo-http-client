@@ -1,5 +1,7 @@
 # mojo-http-client
 
+![Mojo 24.4](https://img.shields.io/badge/Mojo%F0%9F%94%A5-24.4-purple)
+
 A barebones HTTP/1.1 client for Mojo using only Mojo and external C calls.
 
 Thanks to the following for a large chunk of the code for working with sockets via external calls to C!
@@ -7,57 +9,45 @@ Thanks to the following for a large chunk of the code for working with sockets v
 - https://github.com/saviorand/lightbug_http/tree/main
 - https://github.com/gabrieldemarmiesse/mojo-stdlib-extensions/tree/master
 
-# Usage
+## Usage
+
 Currently, it's a simple client. It's able to send requests and parse response strings into a Response struct, and pass some data along.
 
 
-```python
+```mojo
+from http_client.client import HTTPClient, Headers
+
+
 fn test_post() raises:
-    print("Testing POST")
-    var client = HTTPClient("www.httpbin.org", 80)
+    var test = MojoTest("Testing client.post")
 
     # Add headers
     var headers = Headers()
     headers["Connection"] = "close"
 
     # Add data
-    var data = dict[HashableStr, String]()
+    var data = Dict[String, String]()
     data["hello"] = "world"
 
-    var response = client.post("/post", headers, data)
-    print(response.body)
+    var response = HTTPClient().post("www.httpbin.org", "/post", headers=headers, data=data)
+    test.assert_equal(response.status_code, 200)
+    test.assert_equal(response.status_message, "OK")
+    test.assert_equal(response.headers["Content-Type"], "application/json")
+    test.assert_equal(response.scheme, "http")
 
 
 # Simple GET request
 fn test_get() raises:
-    print("Testing GET")
-    var client = HTTPClient("www.example.com", 80)
-    var response = client.get("/")
-    print(response.body)
-
-
-# GET request with headers and query params, returns 400. TODO: Need to fix this, not working atm, returns a 400
-fn test_query_params() raises:
-    print("Testing query params")
-    var query_params = QueryParams()
-    query_params["world"] = "hello"
-    query_params["foo"] = "bar"
-
-    var uri = URI("http", "www.httpbin.org", "/get")
-    _ = uri.set_query_string(query_params)
-
-    # PUT request
-    var client = HTTPClient(uri.get_full_uri(), 80)
-    var response = client.get("/get")
-    print(response.body)
-
-fn main() raises:
-    test_get()
-    test_post()
-    # test_query_params()
+    var test = MojoTest("Testing client.get")
+    var response = HTTPClient().get("www.example.com", "/", 80)
+    print(response)
+    test.assert_equal(response.status_code, 200)
+    test.assert_equal(response.status_message, "OK")
+    test.assert_equal(response.scheme, "http")
 ```
 
-# TODO
+## TODO
+
 - Add SSL support
 - Add HTTP/2 support
 - Add tests
