@@ -1,5 +1,3 @@
-from collections.optional import Optional
-from collections.dict import Dict, KeyElement
 import external.gojo.io
 from external.gojo.builtins import Byte
 from external.gojo.strings import StringBuilder
@@ -8,30 +6,7 @@ from external.gojo.net.ip import get_ip_address
 from .response import Response
 
 
-@value
-struct StringKey(KeyElement):
-    var s: String
-
-    fn __init__(inout self, owned s: String):
-        self.s = s^
-
-    fn __init__(inout self, s: StringLiteral):
-        self.s = String(s)
-
-    fn __hash__(self) -> Int:
-        return hash(self.s)
-
-    fn __eq__(self, other: Self) -> Bool:
-        return self.s == other.s
-
-    fn __ne__(self, other: Self) -> Bool:
-        return self.s != other.s
-
-    fn __str__(self) -> String:
-        return self.s
-
-
-alias Headers = Dict[StringKey, String]
+alias Headers = Dict[String, String]
 
 
 fn build_request_message(
@@ -39,7 +14,7 @@ fn build_request_message(
     path: String,
     method: String,
     headers: Optional[Headers],
-    data: Optional[Dict[StringKey, String]] = None,
+    data: Optional[Dict[String, String]] = None,
 ) -> String:
     var header = method.upper() + " " + path + " HTTP/1.1\r\n"
     header += "Host: " + host + "\r\n"
@@ -55,7 +30,7 @@ fn build_request_message(
             elif pair[].key == "Content-Length":
                 header += "Content-Length: " + pair[].value + "\r\n"
             else:
-                header += String(pair[].key.s) + ": " + pair[].value + "\r\n"
+                header += pair[].key + ": " + pair[].value + "\r\n"
     else:
         # default to closing the connection so socket.receive() does not hang
         header += "Connection: close\r\n"
@@ -71,7 +46,7 @@ fn build_request_message(
     return header
 
 
-fn stringify_data(data: Dict[StringKey, String]) -> String:
+fn stringify_data(data: Dict[String, String]) -> String:
     var key_count = data.size
     var builder = StringBuilder()
     _ = builder.write_string("{")
@@ -79,7 +54,7 @@ fn stringify_data(data: Dict[StringKey, String]) -> String:
     var key_index = 0
     for pair in data.items():
         _ = builder.write_string('"')
-        _ = builder.write_string(pair[].key.s)
+        _ = builder.write_string(pair[].key)
         _ = builder.write_string('"')
         _ = builder.write_string(':"')
         _ = builder.write_string(pair[].value)
@@ -96,106 +71,105 @@ fn stringify_data(data: Dict[StringKey, String]) -> String:
 
 @value
 struct HTTPClient:
-    var host: String
-    var port: Int
-
     fn send_request(
         self,
         method: String,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
-        data: Optional[Dict[StringKey, String]] = None,
+        data: Optional[Dict[String, String]] = None,
     ) raises -> Response:
-        var message = build_request_message(self.host, path, method, headers, data)
+        var message = build_request_message(host, path, method, headers, data)
         print(message)
         var socket = Socket()
 
         # TODO: The message_len will break with unicode characters as they vary from 1-4 bytes.
         var message_len = len(message)
         var bytes_to_send = message.as_bytes()
-        var bytes_sent = socket.send_to(bytes_to_send, get_ip_address(self.host), self.port)
+        var bytes_sent = socket.send_to(bytes_to_send, get_ip_address(host), port)
         if bytes_sent != message_len:
             raise Error(
                 "Failed to send the entire message. Bytes sent:"
-                + String(bytes_sent)
+                + str(bytes_sent)
                 + " Message length:"
-                + String(message_len)
+                + str(message_len)
             )
 
-        # Response buffer to store all the data from the socket. TODO: Might need more than 4096 bytes, but how do I make the size dynamic?
-        var response_buffer = List[Byte](capacity=4096)
+        var bytes: List[UInt8]
+        var err: Error
+        bytes, err = io.read_all(socket)
+        bytes.append(0)
 
-        # Copy repsonse data from the socket into the response buffer until the socket is closed or no more data is available.
-        var total_bytes_read = 0
-        while True:
-            var bytes_read: Int
-            var err: Error
-            bytes_read, err = socket.read(response_buffer)
-            if err:
-                if str(err) != io.EOF:
-                    raise err
-
-            if bytes_read == 0:
-                break
-
-            total_bytes_read += bytes_read
-
-        var response = Response(response_buffer)
+        var response = Response(String(bytes))
         socket.shutdown()
-        var err = socket.close()
+        err = socket.close()
         if err:
             raise err
         return response
 
     fn get(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
     ) raises -> Response:
-        return self.send_request("GET", path, headers=headers)
+        return self.send_request("GET", host, path, port, headers=headers)
 
     fn post(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
-        data: Optional[Dict[StringKey, String]] = None,
+        data: Optional[Dict[String, String]] = None,
     ) raises -> Response:
-        return self.send_request("POST", path, headers=headers, data=data)
+        return self.send_request("POST", host, path, port, headers=headers, data=data)
 
     fn put(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
-        data: Optional[Dict[StringKey, String]] = None,
+        data: Optional[Dict[String, String]] = None,
     ) raises -> Response:
-        return self.send_request("PUT", path, headers=headers, data=data)
+        return self.send_request("PUT", host, path, port, headers=headers, data=data)
 
     fn delete(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
-        data: Optional[Dict[StringKey, String]] = None,
     ) raises -> Response:
-        return self.send_request("DELETE", path, headers=headers)
+        return self.send_request("DELETE", host, path, port, headers=headers)
 
     fn patch(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
-        data: Optional[Dict[StringKey, String]] = None,
+        data: Optional[Dict[String, String]] = None,
     ) raises -> Response:
-        return self.send_request("PATCH", path, headers=headers, data=data)
+        return self.send_request("PATCH", host, path, port, headers=headers, data=data)
 
     fn head(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
     ) raises -> Response:
-        return self.send_request("HEAD", path, headers=headers)
+        return self.send_request("HEAD", host, path, port, headers=headers)
 
     fn options(
         self,
+        host: String,
         path: String,
+        port: Int = 80,
         headers: Optional[Headers] = None,
     ) raises -> Response:
-        return self.send_request("DELETE", path, headers=headers)
+        return self.send_request("DELETE", host, path, port, headers=headers)

@@ -1,8 +1,8 @@
 from collections.dict import Dict
-from .client import StringKey
+from .client import String
 
 
-alias QueryParams = Dict[StringKey, String]
+alias QueryParams = Dict[String, String]
 
 
 fn join(separator: String, iterable: List[String]) -> String:
@@ -106,7 +106,7 @@ struct URI:
     fn set_query_string(inout self, query_params: QueryParams) raises -> Self:
         var params = List[String]()
         for item in query_params.items():
-            params.append(String(item[].key.s) + "=" + item[].value)
+            params.append(item[].key + "=" + item[].value)
 
         self._query_string = join("&", params)
         return self
@@ -183,8 +183,3 @@ struct URI:
         if len(self._query_string) > 0:
             full_uri += "?" + self._query_string
         return full_uri
-
-
-fn normalise_path(path: String, path_original: String) -> String:
-    # TODO: implement
-    return path

@@ -1,4 +1,5 @@
-from .client import Headers
+from .client import Headers, stringify_data
+from external.gojo.fmt import sprintf
 
 
 fn split(input_string: String, sep: String = " ", owned maxsplit: Int = -1) -> List[String]:
@@ -78,7 +79,9 @@ struct Response(Stringable):
             self.body = chunks[1]
 
     fn __str__(self) -> String:
-        return self.original_message
-
-    fn __repr__(self) -> String:
-        return self.original_message
+        return sprintf(
+            "%s %d %s\n",
+            self.protocol,
+            self.status_code,
+            self.status_message,
+        )
