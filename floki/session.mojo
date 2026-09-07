@@ -418,11 +418,16 @@ struct Session(Movable):
         """
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
-        var json_data = emberjson.to_string(data^).as_bytes()
+        var json_data: String
+        try:
+            json_data = emberjson.to_json(data)
+        except e:
+            raise RequestError(Error(String(e)))
+        var json_bytes = json_data.as_bytes()
         return self.send[RequestMethod.POST](
             url=url,
             headers=headers^,
-            data=RequestData(json_data),
+            data=RequestData(json_bytes),
             query_parameters=query_parameters,
             auth=auth,
             allow_redirects=allow_redirects,
@@ -527,7 +532,11 @@ struct Session(Movable):
         """
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
-        var json_data = emberjson.serialize(data)
+        var json_data: String
+        try:
+            json_data = emberjson.to_json(data)
+        except e:
+            raise RequestError(Error(String(e)))
         var json_bytes = json_data.as_bytes()
         return self.send[RequestMethod.POST](
             url=url,
@@ -677,11 +686,16 @@ struct Session(Movable):
         """
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
-        var json_data = emberjson.to_string(data^).as_bytes()
+        var json_data: String
+        try:
+            json_data = emberjson.to_json(data)
+        except e:
+            raise RequestError(Error(String(e)))
+        var json_bytes = json_data.as_bytes()
         return self.send[RequestMethod.PUT](
             url=url,
             headers=headers^,
-            data=json_data,
+            data=RequestData(json_bytes),
             query_parameters=query_parameters,
             auth=auth,
             allow_redirects=allow_redirects,
@@ -734,7 +748,11 @@ struct Session(Movable):
         """
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
-        var json_data = emberjson.serialize(data)
+        var json_data: String
+        try:
+            json_data = emberjson.to_json(data)
+        except e:
+            raise RequestError(Error(String(e)))
         var json_bytes = json_data.as_bytes()
         return self.send[RequestMethod.PUT](
             url=url,
@@ -930,11 +948,16 @@ struct Session(Movable):
         """
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
-        var json_data = emberjson.to_string(data^).as_bytes()
+        var json_data: String
+        try:
+            json_data = emberjson.to_json(data)
+        except e:
+            raise RequestError(Error(String(e)))
+        var json_bytes = json_data.as_bytes()
         return self.send[RequestMethod.PATCH](
             url=url,
             headers=headers^,
-            data=json_data,
+            data=RequestData(json_bytes),
             query_parameters=query_parameters,
             auth=auth,
             allow_redirects=allow_redirects,
@@ -987,7 +1010,11 @@ struct Session(Movable):
         """
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
-        var json_data = emberjson.serialize(data)
+        var json_data: String
+        try:
+            json_data = emberjson.to_json(data)
+        except e:
+            raise RequestError(Error(String(e)))
         var json_bytes = json_data.as_bytes()
         return self.send[RequestMethod.PATCH](
             url=url,

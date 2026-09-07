@@ -137,7 +137,8 @@ struct Cookie(Copyable, Equatable, Writable):
         var header_value = String(self.name, Self.EQUAL, self.value)
         if self.expires.is_datetime():
             try:
-                if var v := self.expires.http_date_timestamp():
+                var v = self.expires.http_date_timestamp()
+                if v:
                     header_value.write(Self.SEPERATOR, Self.EXPIRES, Self.EQUAL, v.value())
             except:
                 # TODO: This should be a hardfail however Writeable trait write_to method does not raise

@@ -44,7 +44,7 @@ struct CookieKey(Copyable, KeyElement, Writable):
         Args:
             hasher: The hasher instance.
         """
-        hasher.update(String(self.name, "~", self.domain, "~", self.path))
+        hasher.update(String(self.name, "~", self.domain, "~", self.path).as_bytes())
 
 
 @fieldwise_init
